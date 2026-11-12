@@ -145,6 +145,8 @@ export function createState(course) {
     lastStand: null, // the platform Kai last stood on (its vines catch him first)
     lastStandY: null, // and its height there
     slips: 0, // times the vines caught him
+    secrets: {}, // secret id -> true once found (course.secrets)
+    lastSecret: null, // id of the secret found most recently (for the renderer)
     reached: course.checkpoints.map((c, i) => i === 0), // checkpoints Kai has stood at (travel is between these)
     spent: 0, // coins spent on travel
     gemsSpent: 0, // sky gems given to springs
@@ -486,6 +488,11 @@ export function step(state, input, course, dt = PARAMS.dt) {
     state.waveCd = PARAMS.waveCooldown;
     state.lastWave = [];
     state.events.push('wave');
+    // A gust sent at an old steward's stone wakes it (a secret: course.secrets, kind 'stone').
+    for (const sec of course.secrets || []) {
+      if (sec.kind !== 'stone' || state.secrets[sec.id] || state.standing !== sec.plat) continue;
+      if (Math.hypot(sec.x - state.x, sec.z - state.z) <= sec.r) foundSecret(state, sec.id);
+    }
     (course.enemies || []).forEach((e, i) => {
       if (state.defeated[i]) return;
       const p = enemyPos(e, state.t);
@@ -904,6 +911,12 @@ export function step(state, input, course, dt = PARAMS.dt) {
     }
   }
 
+  // The grounds made whole (a secret, kind 'whole'): every creature that was out of place is home and every dry spring runs.
+  for (const sec of course.secrets || []) {
+    if (sec.kind !== 'whole' || state.secrets[sec.id]) continue;
+    if (state.toRehome > 0 && state.rehomed >= state.toRehome && state.springs.every(Boolean)) foundSecret(state, sec.id);
+  }
+
   // Falling off the world returns Kai to the last checkpoint.
   if (state.y < course.killY) respawn(state, course);
 
@@ -917,6 +930,14 @@ export function step(state, input, course, dt = PARAMS.dt) {
     state.events.push('complete');
   }
   return state;
+}
+
+/** Mark a secret found (once) and tell the renderer. */
+function foundSecret(state, id) {
+  if (state.secrets[id]) return;
+  state.secrets[id] = true;
+  state.lastSecret = id;
+  state.events.push('secret');
 }
 
 /**

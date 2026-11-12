@@ -48,6 +48,16 @@ There is no build step. `src/logic.mjs` is the whole game as pure, deterministic
 | Mouse drag, R F, T G | Turn and tilt the camera |
 | P, M | Pause, sound |
 
+## Secrets
+
+There are things in the game that nothing on screen points at, and one that can only be found by running the code:
+`npm run riddle`. Finding them earns access, not prizes. See `SECRETS.md`, and do not post what you find in public.
+
+## Contributing
+
+This repository is the game's source of truth: what is merged here is what gets deployed. Pull requests are welcome; read
+`CONTRIBUTING.md` first.
+
 ## Known limits
 
 - Frame rate has not been tuned for low-end machines; the game lowers its own resolution when frames run long.

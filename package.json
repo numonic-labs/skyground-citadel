@@ -11,7 +11,8 @@
     "serve": "node serve.mjs",
     "playtest": "node tools/play.mjs",
     "build:site": "node tools/build_site.mjs",
-    "check:site": "node tools/check_site.mjs"
+    "check:site": "node tools/check_site.mjs",
+    "riddle": "node tools/riddle.mjs"
   },
   "dependencies": {
     "three": "0.171.0"
