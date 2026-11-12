@@ -1,0 +1,5 @@
+node_modules/
+out/
+site/
+# The models and textures are distributed separately: see ASSETS.md.
+assets/

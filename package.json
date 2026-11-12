@@ -1,0 +1,22 @@
+{
+  "name": "skyground-citadel",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Skyground Citadel: a 3D platform game built from a single AI-generated video, in the open. Three.js, no build step.",
+  "license": "MIT",
+  "homepage": "https://numonic-skyground-citadel.vercel.app",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.mjs",
+    "serve": "node serve.mjs",
+    "playtest": "node tools/play.mjs",
+    "build:site": "node tools/build_site.mjs",
+    "check:site": "node tools/check_site.mjs"
+  },
+  "dependencies": {
+    "three": "0.171.0"
+  },
+  "devDependencies": {
+    "playwright-core": "1.58.2"
+  }
+}

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skyground Citadel</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #9ec9f0; overflow: hidden; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
+    canvas { display: block; }
+    [hidden] { display: none !important; }
+
+    /* The plaque, top left: title, a hint that fades, and the counters. */
+    #hud { position: fixed; left: 0; top: 0; padding: 12px 60px 14px 18px; color: #fff; font-weight: 600; font-size: 15px; pointer-events: none; max-width: min(760px, 92vw);
+      background: linear-gradient(120deg, rgba(14, 32, 56, .92), rgba(20, 44, 78, .8)); clip-path: polygon(0 0, 100% 0, calc(100% - 38px) 100%, 0 100%); }
+    #title { font-size: 22px; font-weight: 800; letter-spacing: .03em; text-shadow: 0 2px 0 rgba(0, 0, 0, .35); }
+    #title::after { content: ''; display: inline-block; width: 11px; height: 11px; margin-left: 10px; background: #2fd8c9; transform: rotate(45deg); vertical-align: 3px; }
+    #hint { opacity: .9; font-weight: 500; font-size: 13.5px; line-height: 1.35; margin: 2px 0 4px; transition: opacity 1.5s; }
+    #coins { display: flex; align-items: center; gap: 16px; font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    #coins small { font-size: 13px; font-weight: 600; opacity: .7; margin-left: 2px; }
+    #coins .stat { display: inline-flex; align-items: center; gap: 7px; transition: transform .12s; }
+    #coins .stat.bump { transform: scale(1.28); }
+    .ico-coin { width: 17px; height: 17px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3b0, #ffc933 55%, #c98a00); box-shadow: 0 0 0 2px rgba(120, 78, 0, .55), 0 0 8px rgba(255, 200, 60, .6); }
+    .ico-gem { width: 13px; height: 13px; background: linear-gradient(135deg, #b5fff6, #2fd8c9 55%, #0d8f86); transform: rotate(45deg); box-shadow: 0 0 8px rgba(80, 240, 225, .7); margin: 0 3px; }
+    .hearts { letter-spacing: 2px; color: #ff6f8f; text-shadow: 0 0 6px rgba(255, 90, 130, .6); }
+    .hearts i { font-style: normal; color: rgba(255, 255, 255, .28); text-shadow: none; }
+    .keytag { font-size: 12px; font-weight: 800; letter-spacing: .06em; color: #3a2a00; background: linear-gradient(#ffe27a, #ffc02e); border-radius: 9px; padding: 2px 8px; box-shadow: 0 0 8px rgba(255, 200, 60, .6); }
+    #perf { font-size: 12px; font-weight: 500; margin-top: 4px; }
+
+    /* The clock, top right. */
+    #clock { position: fixed; right: 0; top: 0; padding: 10px 18px 12px 52px; color: #fff; font-weight: 800; font-size: 19px; font-variant-numeric: tabular-nums; pointer-events: none;
+      background: linear-gradient(240deg, rgba(14, 32, 56, .92), rgba(20, 44, 78, .8)); clip-path: polygon(0 0, 100% 0, 100% 100%, 34px 100%); }
+    #clock small { display: block; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .75; text-align: right; }
+
+    /* Area names and pickups announce themselves in the upper middle. */
+    #toast { position: fixed; left: 50%; top: 17%; transform: translate(-50%, 0); color: #fff; font-size: 30px; font-weight: 800; letter-spacing: .06em; text-align: center; white-space: nowrap;
+      text-shadow: 0 2px 0 rgba(10, 24, 48, .8), 0 0 18px rgba(10, 24, 48, .7); opacity: 0; transition: opacity .5s, transform .5s; pointer-events: none; }
+    #toast.show { opacity: 1; transform: translate(-50%, 6px); }
+    #toast small { display: block; font-size: 14px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; opacity: .85; margin-bottom: 2px; }
+    #toast::after { content: ''; display: block; width: 120px; height: 3px; margin: 8px auto 0; border-radius: 2px; background: linear-gradient(90deg, transparent, #ffd45a, transparent); }
+
+    /* A tip where a move is first needed, bottom centre. */
+    #tip { position: fixed; left: 50%; bottom: 5vh; transform: translate(-50%, 8px); max-width: 86vw; color: #fff; font-size: 17px; font-weight: 700; text-align: center;
+      background: rgba(12, 28, 60, .78); border: 1px solid rgba(255, 212, 90, .6); border-radius: 14px; padding: 9px 20px; opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; }
+    #tip.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* The way-crystal panel: where to travel. */
+    #travel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); min-width: 340px; color: #fff; text-align: center; pointer-events: none;
+      background: linear-gradient(160deg, rgba(14, 32, 56, .94), rgba(28, 54, 96, .9)); border: 2px solid rgba(79, 242, 224, .75); border-radius: 20px; padding: 18px 34px 16px; box-shadow: 0 18px 60px rgba(4, 12, 30, .5); }
+    #travel small { display: block; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
+    #travel .dest { font-size: 30px; font-weight: 800; margin: 8px 0 6px; color: #9ffff4; }
+    #travel .how { font-size: 14px; opacity: .9; }
+    .steward { font-size: 13px; font-weight: 800; letter-spacing: .04em; color: #10321a; background: linear-gradient(#c9f7a8, #8fe36a); border-radius: 9px; padding: 2px 8px; }
+    #banner .next { margin: 6px 0 2px; font-size: 16px; font-weight: 700; color: #ffd45a; }
+
+    /* Title, pause and finish cards. */
+    #banner { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #fff; text-align: center; pointer-events: none;
+      text-shadow: 0 2px 8px rgba(8, 20, 44, .75); font-size: 18px; font-weight: 600; background: radial-gradient(ellipse at 50% 45%, rgba(12, 28, 60, .28), rgba(12, 28, 60, 0) 62%); }
+    #banner .logo { font-size: clamp(44px, 9vw, 104px); line-height: .92; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; color: #ffd75e;
+      text-shadow: 0 -2px 0 #fff3b8, 0 3px 0 #c98a14, 0 6px 0 #8a5300, 0 9px 0 #5a3200, 0 16px 26px rgba(8, 20, 44, .6); }
+    #banner.finish { align-items: flex-end; padding-right: 4vw; box-sizing: border-box; background: none; }
+    #banner.title { justify-content: space-between; padding: 6vh 0 4vh; box-sizing: border-box; background: linear-gradient(rgba(12, 28, 60, .32), rgba(12, 28, 60, 0) 34%, rgba(12, 28, 60, 0) 70%, rgba(12, 28, 60, .3)); }
+    #banner.title .foot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    #banner .big { font-size: clamp(30px, 5vw, 54px); font-weight: 900; letter-spacing: .03em; }
+    #banner .sub { font-size: clamp(15px, 2vw, 22px); letter-spacing: .28em; text-transform: uppercase; opacity: .95; }
+    #banner .press { margin-top: 18px; font-size: clamp(16px, 2.2vw, 24px); font-weight: 800; animation: pulse 1.6s ease-in-out infinite; }
+    #banner .keys { margin-top: 14px; font-size: 14px; font-weight: 500; opacity: .92; line-height: 1.7; background: rgba(12, 28, 60, .55); padding: 10px 20px; border-radius: 14px; }
+    #banner .community { margin-top: 10px; font-size: 14px; font-weight: 600; opacity: .95; }
+    #banner .community a { color: #ffd75e; pointer-events: auto; }
+    #banner .keys b { display: inline-block; min-width: 20px; padding: 0 6px; margin: 0 2px; border-radius: 6px; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .35); font-weight: 700; }
+    #banner .card { background: linear-gradient(160deg, rgba(14, 32, 56, .9), rgba(28, 54, 96, .84)); border: 2px solid rgba(255, 212, 90, .7); border-radius: 22px; padding: 26px 44px 22px; box-shadow: 0 18px 60px rgba(4, 12, 30, .5); }
+    #banner .stars { font-size: 46px; letter-spacing: 10px; color: #ffd45a; text-shadow: 0 0 18px rgba(255, 200, 60, .8), 0 3px 0 rgba(84, 44, 0, .85); }
+    #banner .stars i { font-style: normal; color: rgba(255, 255, 255, .22); text-shadow: none; }
+    #banner .rank { font-size: 15px; letter-spacing: .26em; text-transform: uppercase; opacity: .9; margin-bottom: 8px; }
+    #banner table { margin: 10px auto 6px; border-collapse: collapse; font-size: 19px; font-variant-numeric: tabular-nums; }
+    #banner td { padding: 3px 14px; text-align: left; }
+    #banner td:last-child { text-align: right; font-weight: 800; }
+    @keyframes pulse { 0%, 100% { opacity: .55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.04); } }
+
+    /* Full-screen feedback: a white flash on returning to a checkpoint, a red edge when hurt. */
+    #flash, #hurt { position: fixed; inset: 0; pointer-events: none; opacity: 0; }
+    #flash { background: #fff; }
+    #hurt { background: radial-gradient(ellipse at center, rgba(255, 40, 70, 0) 45%, rgba(255, 40, 70, .55) 100%); }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <div id="hud">
+    <div id="title">Skyground Citadel</div>
+    <div id="hint">Arrows or WASD to move · Space to jump</div>
+    <div id="coins">Coins 0 / 0</div>
+    <div id="perf" hidden></div>
+  </div>
+  <div id="clock" hidden><small>Time</small><span id="clockT">0:00.0</span></div>
+  <div id="toast"></div>
+  <div id="tip"></div>
+  <div id="travel" hidden></div>
+  <div id="flash"></div>
+  <div id="hurt"></div>
+  <div id="banner" class="title">
+    <div>
+      <div class="logo">Skyground<br />Citadel</div>
+      <div class="sub">Steward of the citadel grounds</div>
+    </div>
+    <div class="foot">
+    <div class="press">Press any key</div>
+    <div class="keys">
+      <b>W</b><b>A</b><b>S</b><b>D</b> or arrows: move &nbsp;·&nbsp; <b>Space</b>: jump, and again in the air &nbsp;·&nbsp; <b>E</b>: take a vine bloom's hand<br />
+      <b>X</b>: pick up or set down a creature, wake a spring, or send a gust &nbsp;·&nbsp; <b>Enter</b> at a way-crystal: travel<br />
+      Mouse drag, <b>R</b> <b>F</b> and <b>T</b> <b>G</b>: turn and tilt the camera &nbsp;·&nbsp; <b>P</b>: pause &nbsp;·&nbsp; <b>M</b>: sound &nbsp;·&nbsp; a gamepad works too
+    </div>
+    <div class="community">A work in progress, built in the open &nbsp;·&nbsp; <a id="community" href="https://discord.gg/tejSd5SkeD" target="_blank" rel="noopener">Tell us what broke or bored you, in Discord</a></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
