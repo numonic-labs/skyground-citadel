@@ -391,3 +391,35 @@ test('the lantern key is well away from its gate', () => {
   const g = gatesOf(C).find((q) => q.key === 'lantern');
   assert.ok(Math.hypot(k.x - 0, k.z - g.z) > 12, 'more than 12 m from the middle of the gate');
 });
+
+test('secret: a gust beside the old stone on the far arch island wakes it, once; a gust elsewhere does not', () => {
+  const sec = C.secrets.find((q) => q.kind === 'stone');
+  const away = standAt(0, 0);
+  away.creatures.forEach((c) => (c.x += 40));
+  step(away, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(away.events.includes('wave'));
+  assert.ok(!away.events.includes('secret'), 'no secret at the start');
+  const s = standAt(sec.x, sec.z);
+  assert.equal(s.standing, sec.plat, 'the stone stands on ground Kai can stand on');
+  step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(s.events.includes('secret'));
+  assert.equal(s.lastSecret, 'stone');
+  for (let i = 0; i < 120; i++) step(s, { fwd: 0, right: 0, jump: false, wave: false }, C);
+  step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(!s.events.includes('secret'), 'only once');
+  assert.equal(Object.keys(s.secrets).length, 1);
+});
+
+test('secret: the grounds are whole when every out-of-place creature is home and every dry spring runs', () => {
+  const s = standAt(0, 0);
+  step(s, { fwd: 0, right: 0, jump: false }, C);
+  assert.ok(!s.secrets.whole);
+  s.rehomed = s.toRehome;
+  step(s, { fwd: 0, right: 0, jump: false }, C);
+  assert.ok(!s.secrets.whole, 'creatures alone are not enough');
+  s.springs = s.springs.map(() => true);
+  step(s, { fwd: 0, right: 0, jump: false }, C);
+  assert.ok(s.events.includes('secret'));
+  assert.equal(s.lastSecret, 'whole');
+});
+

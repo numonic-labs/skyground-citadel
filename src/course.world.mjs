@@ -233,6 +233,13 @@ export const COURSE_WORLD = {
   ],
   // The islands' vines catch a falling Kai (logic.mjs, "The vine catch").
   vineCatch: true,
+  // Secrets. Nothing on screen points at them. 'whole': every out-of-place creature rehomed and every dry spring woken.
+  // 'stone': an old steward's stone on the low shelf behind the far arch island's mound; a gust sent beside it wakes it.
+  // If you are reading this instead of playing, that counts too: see SECRETS.md.
+  secrets: [
+    { id: 'whole', kind: 'whole' },
+    { id: 'stone', kind: 'stone', plat: 'V4', x: -60, z: 5.6, r: 2.6 },
+  ],
   gates: [
     { id: 'lantern', key: 'lantern', z: 215.5, x0: -6.5, x1: 6.5, y: LOW },
     { id: 'citadel', key: 'citadel', z: 408, x0: -6.5, x1: 6.5, y: LOW + 6 },

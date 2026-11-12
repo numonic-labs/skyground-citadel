@@ -4303,6 +4303,19 @@ function onEvents(events) {
       );
     } else if (e === 'travel-refused') {
       toast('You need a coin to travel');
+    } else if (e === 'secret') {
+      const words = SECRET_WORDS[state.lastSecret];
+      fx.ring(kx, ky + 0.3, kz, { color: 0xffd75e, speed: 6, n: 26 });
+      fx.burst(kx, ky + 0.8, kz, {
+        n: 34,
+        color: 0xffd75e,
+        color2: 0xffffff,
+        speed: 5,
+        life: 1.2,
+        gravity: 1.5,
+      });
+      audio.sfx('spring-awake');
+      if (words) toast(`“${words}”`, 'A secret · tell us in the Discord, privately');
     } else if (e === 'spring-awake') {
       const sp = COURSE.streams[state.lastSpring].spring;
       fx.splash(sp.x, ky, sp.z, { n: 30, speed: 6, size: 0.3 });
@@ -4399,6 +4412,11 @@ function showFinish() {
       `${state.gemsSpent} / ${COURSE.streams.filter(q => q.dry).length}`
     );
   row('Slips and falls', `${state.slips} / ${state.deaths}`);
+  if (COURSE.secrets)
+    row(
+      'Secrets',
+      `${Object.keys(state.secrets).length} / ${COURSE.secrets.length}`
+    );
   card.appendChild(table);
   if (WORLD)
     card.appendChild(
@@ -4695,6 +4713,37 @@ function updateFeel(dtRaw, t) {
     feel.clockKey = ck;
     clockEl.hidden = !started;
     clockT.textContent = ck;
+  }
+}
+
+// ---------- secrets ----------
+// What the game says when a secret is found. These are in plain sight for anyone who reads the source, on purpose: finding
+// them by reading is a way of finding them (SECRETS.md). They prove nothing by themselves; say how you found it.
+const SECRET_WORDS = {
+  whole: 'the grounds are whole again',
+  stone: 'the old steward still listens',
+};
+if (WORLD) {
+  for (const sec of COURSE.secrets || []) {
+    if (sec.kind !== 'stone') continue;
+    const pl = COURSE.platforms.find(q => q.id === sec.plat);
+    const gy = (pl && surfaceY(pl, sec.x, sec.z)) ?? (pl ? pl.y : 0);
+    const g = new THREE.Group();
+    const rock = mat(0x8d8a99, { roughness: 0.95 });
+    const moss = mat(0x5f8f4a, { roughness: 1 });
+    const pillar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.46, 1.5, 6),
+      rock
+    );
+    pillar.position.y = 0.75;
+    pillar.rotation.z = 0.07;
+    const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.36, 0), moss);
+    cap.position.y = 1.55;
+    const foot = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4, 0), rock);
+    foot.position.set(0.5, 0.15, 0.2);
+    g.add(pillar, cap, foot);
+    g.position.set(sec.x + 0.9, gy, sec.z + 0.6);
+    course.add(bake(g));
   }
 }
 
