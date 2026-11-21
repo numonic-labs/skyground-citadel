@@ -30,11 +30,11 @@ for (const route of ['centre', 'west', 'stairs', 'lower', 'ruin', 'arch', 'secre
   });
 }
 
-test('the main line is finished without a fall or a hit, in under two minutes', () => {
+test('the main line is finished without a fall or a hit, after the scripted player has fetched Ossa a friend', () => {
   const s = run('centre');
   assert.equal(s.deaths, 0);
   assert.equal(s.hits, 0);
-  assert.ok(s.t < 120, `took ${s.t.toFixed(1)} s`);
+  assert.equal(s.elder.satisfied, true, 'Ossa was satisfied on the way');
 });
 
 test('the same inputs give the same run (deterministic)', () => {
@@ -75,10 +75,52 @@ test('a gate only blocks inside its span: far to the side it does nothing', () =
   assert.ok(s.z > g.z, 'not stopped 40 m to the side');
 });
 
-test('the guardian drops the citadel key', () => {
-  const gi = C.enemies.findIndex((e) => e.stomp);
-  assert.equal(C.enemies[gi].drops, 'citadel');
+test('the citadel key is held by Ossa, far from the gate, and nothing on the road drops it', () => {
+  assert.equal(C.elder.key, 'citadel');
+  assert.ok(!C.enemies.some((e) => e.drops || e.stomp), 'no enemy drops a key or can be landed on');
+  const gate = gatesOf(C).find((g) => g.id === 'citadel');
+  assert.ok(Math.hypot(C.elder.x, C.elder.z - gate.z) > 300, 'Ossa is far from the citadel gate');
   assert.ok(keysOf(C).some((k) => k.id === 'lantern'));
+});
+
+test('Ossa: a liked creature set down beside it releases the key, once; any other is refused and nothing is lost', () => {
+  const s = standAt(C.elder.x + 2, C.elder.z);
+  assert.equal(s.elder.desire, 'loneliness');
+  const carry = (species) => {
+    const i = s.creatures.findIndex((c) => c.species === species && !c.carried);
+    s.carry = i;
+    s.creatures[i].carried = true;
+  };
+  carry('dewling'); // not a species Ossa likes
+  step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(s.events.includes('elder-refuses'));
+  assert.ok(!s.keysHeld.citadel);
+  assert.equal(s.elder.satisfied, false);
+  assert.equal(s.carry, -1, 'the creature was set down, not lost');
+  step(s, { fwd: 0, right: 0, jump: false, wave: false }, C);
+  carry('hopper');
+  step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(s.events.includes('elder-pleased'));
+  assert.ok(s.keysHeld.citadel);
+  assert.equal(s.elder.satisfied, true);
+  step(s, { fwd: 0, right: 0, jump: false, wave: false }, C);
+  carry('hopper');
+  step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(!s.events.includes('elder-pleased'), 'it is pleased once');
+});
+
+test('Ossa: a hopper set down away from it, or the gust beside it, does nothing', () => {
+  const far = standAt(C.elder.x + 5, C.elder.z); // still on its island, but beyond its 4 m reach
+  const i = far.creatures.findIndex((c) => c.species === 'hopper');
+  far.carry = i;
+  far.creatures[i].carried = true;
+  step(far, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(!far.events.includes('elder-pleased') && !far.events.includes('elder-refuses'));
+  assert.ok(!far.keysHeld.citadel);
+  const near = standAt(C.elder.x + 2, C.elder.z);
+  near.yaw = -Math.PI / 2; // facing Ossa
+  step(near, { fwd: 0, right: 0, jump: false, wave: true }, C);
+  assert.ok(!near.keysHeld.citadel && !near.elder.satisfied);
 });
 
 test('every coin and gem hangs over a platform, within reach of a jump from it', () => {
@@ -179,18 +221,6 @@ test('the wave has a cooldown and needs a fresh press', () => {
   step(s, { fwd: 0, right: 0, jump: false, wave: false }, C);
   step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
   assert.ok(!s.events.includes('wave'), 'a second press inside the cooldown does nothing');
-});
-
-test('the guardian only flinches at the wave: it still has to be landed on', () => {
-  const gi = C.enemies.findIndex((e) => e.stomp);
-  const g = C.enemies[gi];
-  const s = standAt(0, g.z - 4);
-  s.yaw = 0;
-  s.defeated = s.defeated.map((d, i) => i !== gi); // only the guardian is left
-  step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
-  assert.ok(s.events.includes('waveblock'));
-  assert.equal(s.defeated[gi], false);
-  assert.ok(!s.keysHeld.citadel);
 });
 
 test('a fence stops Kai on foot and a jump clears it', () => {

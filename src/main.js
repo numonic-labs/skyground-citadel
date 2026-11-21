@@ -4302,6 +4302,23 @@ function onEvents(events) {
         ky + 3.2,
         kz - Math.cos(camYaw) * 6
       );
+    } else if (e === 'elder-pleased') {
+      const el = COURSE.elder;
+      const oy = COURSE.platforms.find(q => q.id === el.plat).y;
+      fx.burst(el.x, oy + 2.4, el.z, {
+        n: 40,
+        color: 0xff9fc6,
+        color2: 0xfff3a0,
+        speed: 5,
+        life: 1.4,
+        gravity: 1,
+      });
+      fx.ring(el.x, oy + 0.4, el.z, { color: 0xff9fc6, speed: 6, n: 24 });
+      audio.sfx('rehome');
+      toast('“Thank you, little steward. The key is yours.”', `${el.name}, ${el.title}`);
+    } else if (e === 'elder-refuses') {
+      const el = COURSE.elder;
+      toast(`A ${state.lastRefused} is not the company it wants`, `${el.name}, ${el.title}`);
     } else if (e === 'travel-refused') {
       toast('You need a coin to travel');
     } else if (e === 'secret') {
@@ -4885,10 +4902,123 @@ function makeCreature(c) {
   scene.add(g);
   return { g, body, emote, bubble, mood: '' };
 }
+// ---------- Ossa, the Granmoss: the largest creature, asleep on the citadel key far from the gate ----------
+// Procedural placeholder art: a mossy dome shell, a sleepy head, four stubby legs and the key's gold glinting beneath it. Its desire
+// shows in a thought bubble once Kai is close (a heart: it is lonely). When the desire is met it opens its eyes and rises a little.
+let ossa = null;
+function buildOssa() {
+  const el = COURSE.elder;
+  const plat = COURSE.platforms.find(q => q.id === el.plat);
+  const R = el.r;
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  const shellMat = mat(0x6e5a3a, { roughness: 0.95 });
+  const plateMat = mat(0x8c7448, { roughness: 0.9 });
+  const mossMat = mat(0x5f8f4a, { roughness: 1 });
+  const skinMat = mat(0x8f9a62, { roughness: 0.9 });
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(R, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+    shellMat
+  );
+  dome.scale.set(1.15, 0.85, 1.35);
+  dome.position.y = 0.45;
+  body.add(dome);
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const ring = i < 6 ? 0.62 : 0.2;
+    const plate = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), plateMat);
+    plate.scale.set(1, 0.3, 1);
+    plate.position.set(
+      Math.cos(a) * R * ring * 1.15,
+      0.45 + R * 0.85 * Math.sqrt(Math.max(0.02, 1 - ring * ring)) - 0.05,
+      Math.sin(a) * R * ring * 1.35
+    );
+    body.add(plate);
+  }
+  for (const [mx, mz, ms] of [[-0.5, -0.4, 0.55], [0.55, 0.2, 0.4], [0.1, 0.7, 0.3]]) {
+    const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(ms, 1), mossMat);
+    moss.scale.y = 0.45;
+    moss.position.set(mx * R, 0.45 + R * 0.85 * 0.92, mz * R * 1.1);
+    body.add(moss);
+  }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.62, 16, 12), skinMat);
+  head.scale.set(1, 0.85, 1.15);
+  head.position.set(0, 0.7, R * 1.45);
+  body.add(head);
+  const eyeWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const eyePupil = new THREE.MeshBasicMaterial({ color: 0x1c1826 });
+  const eyes = new THREE.Group();
+  const lids = new THREE.Group();
+  for (const ex of [-0.28, 0.28]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), eyeWhite);
+    eye.position.set(ex, 0.82, R * 1.45 + 0.52);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), eyePupil);
+    pu.position.set(ex, 0.82, R * 1.45 + 0.62);
+    eyes.add(eye, pu);
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), skinMat);
+    lid.scale.set(1, 0.35, 1);
+    lid.position.set(ex, 0.82, R * 1.45 + 0.54);
+    lids.add(lid);
+  }
+  eyes.visible = false;
+  body.add(eyes, lids);
+  for (const [lx, lz] of [[-1, -0.9], [1, -0.9], [-1, 0.9], [1, 0.9]]) {
+    const leg = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), skinMat);
+    leg.scale.set(1, 0.8, 1.1);
+    leg.position.set(lx * R * 0.85, 0.3, lz * R * 0.95);
+    body.add(leg);
+  }
+  // The key under its belly: a gold ring and bar, glinting.
+  const goldMat = mat(0xffc83d, { emissive: 0xaa7a00, emissiveIntensity: 0.8, metalness: 0.3, roughness: 0.35 });
+  const keyG = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 8, 16), goldMat);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.7), goldMat);
+  bar.position.z = 0.55;
+  keyG.add(ring, bar);
+  keyG.position.set(R * 1.25, 0.12, R * 0.2);
+  keyG.rotation.x = Math.PI / 2;
+  body.add(keyG);
+  g.add(body);
+  const emote = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+  emote.scale.set(1.1, 1.1, 1);
+  emote.position.y = 3.1;
+  emote.visible = false;
+  g.add(emote);
+  g.position.set(el.x, plat.y, el.z);
+  g.rotation.y = Math.PI / 2; // facing east, toward the stepping stone
+  scene.add(g);
+  return { g, body, eyes, lids, emote, rise: 0, key: keyG, shown: '' };
+}
+function updateOssa(dt, t) {
+  if (!COURSE.elder) return;
+  if (!ossa) ossa = buildOssa();
+  const el = COURSE.elder;
+  const d = Math.hypot(state.x - el.x, state.z - el.z);
+  ossa.g.visible = d < 140;
+  if (!ossa.g.visible) return;
+  const happy = state.elder.satisfied;
+  ossa.rise += ((happy ? 1 : 0) - ossa.rise) * (1 - Math.exp(-1.8 * dt));
+  ossa.body.position.y = ossa.rise * 0.4;
+  ossa.body.scale.y = 1 + Math.sin(t * (happy ? 1.8 : 1.1)) * 0.018;
+  ossa.eyes.visible = happy;
+  ossa.lids.visible = !happy;
+  ossa.key.visible = !happy; // the key is in Kai's hand once Ossa lets go
+  const want = !happy && d < 14 ? 'play' : '';
+  if (want !== ossa.shown) {
+    ossa.shown = want;
+    ossa.emote.visible = !!want;
+    if (want) {
+      ossa.emote.material.map = emoteTex[want] || (emoteTex[want] = emoteTexture(want));
+      ossa.emote.material.needsUpdate = true;
+    }
+  }
+  if (want) ossa.emote.position.y = 3.1 + Math.sin(t * 2) * 0.08;
+}
 // Flowers that grow where a creature left a seed (one batch).
 const FLOWER_MAX = 40;
 let flowerBatch = null;
 function updateLife(dt, t) {
+  updateOssa(dt, t);
   const cs = state.creatures || [];
   while (world.creatures.length < cs.length)
     world.creatures.push(makeCreature(cs[world.creatures.length])); // kits arrive

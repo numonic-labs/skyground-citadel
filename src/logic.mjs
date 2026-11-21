@@ -170,6 +170,7 @@ export function createState(course) {
     events: [], // cleared each step; strings such as 'coin', 'respawn', 'complete', 'jump', 'land', 'spring', 'hurt'
   };
   createCreatures(st, course);
+  if (course.elder) st.elder = { desire: course.elder.desire, satisfied: false };
   return st;
 }
 
@@ -458,7 +459,9 @@ export function step(state, input, course, dt = PARAMS.dt) {
   state.waveCd = Math.max(0, state.waveCd - dt);
   const wPressed = !!input.wave && !state.prevWave;
   state.prevWave = !!input.wave;
+  const carriedBefore = state.carry;
   let handUsed = course.creatures ? lifeStep(state, course, wPressed, dt) : false;
+  if (course.elder) elderStep(state, course, carriedBefore, wPressed);
   if (wPressed && !handUsed && state.onGround && course.streams) {
     const si = course.streams.findIndex((st, i) => !state.springs[i] && st.spring && Math.hypot(st.spring.x - state.x, st.spring.z - state.z) <= PARAMS.springReach);
     if (si >= 0) {
@@ -1061,6 +1064,7 @@ function cloneState(s) {
     reached: [...s.reached],
     springs: [...s.springs],
     creatures: s.creatures && s.creatures.map((c) => ({ ...c })),
+    elder: s.elder && { ...s.elder },
     events: [],
   };
 }
@@ -1164,6 +1168,11 @@ export function simulate(course, inputFn, seconds, dt = PARAMS.dt) {
  */
 export function pilot(state, course, options = {}) {
   if (state.hang) return { fwd: 1, right: 0, jump: true, grapple: false }; // caught by the vines: climb
+  // The Elder holds the citadel key: before anything else the scripted player fetches it a friend, then comes back.
+  if (course.elderErrand && state.elder) {
+    const input = elderErrand(state, course, options);
+    if (input) return input;
+  }
   const route = course.routes && course.routes[options.route || 'centre'];
   if (route) {
     const input = navigate(state, course, route, options);
@@ -1181,6 +1190,49 @@ export function pilot(state, course, options = {}) {
     if (unfinished) return input;
   }
   return autopilot(state, course, options);
+}
+
+/** Follow `route` under its own progress record `key`; null once the route is finished. */
+function followNav(state, course, key, route, options) {
+  const keep = state.nav;
+  state.nav = (state.errands ||= {})[key] || { idx: 0 };
+  const input = navigate(state, course, route, options);
+  state.errands[key] = state.nav;
+  const unfinished = state.nav.idx < route.length;
+  state.nav = keep;
+  return unfinished ? input : null;
+}
+
+/**
+ * The scripted player's errand for the Elder (`course.elderErrand: { catchPlat, out, back }`): creep up on a creature the Elder
+ * likes (slowly, so it does not skip away), catch it with X, carry it along `out`, set it down beside the Elder, then return
+ * along `back`. Returns null when there is nothing (more) to do, and the caller carries on with its route.
+ */
+function elderErrand(state, course, options) {
+  const er = course.elderErrand;
+  const el = course.elder;
+  const press = (input) => ({ ...input, wave: !state.prevWave }); // a fresh press of X
+  const still = { fwd: 0, right: 0, jump: false, grapple: false };
+  if (state.elder.satisfied) return followNav(state, course, 'elder-back', er.back, options);
+  if (state.carry < 0) {
+    let best = null;
+    let bestD = Infinity;
+    for (const c of state.creatures) {
+      if (c.carried || c.kit || c.plat !== er.catchPlat || !(el.likes || []).includes(c.species)) continue;
+      const d = Math.hypot(c.x - state.x, c.z - state.z);
+      if (d < bestD) {
+        best = c;
+        bestD = d;
+      }
+    }
+    if (!best) return null;
+    if (bestD < LIFE.catchReach - 0.5) return press(still);
+    const dx = best.x - state.x;
+    const dz = best.z - state.z;
+    return { fwd: (0.5 * dz) / bestD, right: (-0.5 * dx) / bestD, jump: false, grapple: false }; // slower than "running"
+  }
+  if (nearElder(state, course) && state.onGround) return press(still);
+  return followNav(state, course, 'elder-out', er.out, options) || press(still);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
@@ -1284,6 +1336,41 @@ export function creatureY(course, c, t = 0) {
   if (!p) return 0;
   if (p.hm) return surfaceY(p, c.x, c.z) ?? p.y;
   return platformBounds(p, t).y;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// The Elder (Ossa, the Granmoss). The largest creature: too big to move, and the gust and a landing on its shell do nothing to
+// it. It sleeps on the citadel key, far from the gate. It has a desire, as the smaller creatures have hunger and energy; when
+// the desire is met it rises and the key is released. v1: `loneliness`, met by setting down a creature of a species it likes
+// beside it. (Later desires: hunger, boredom, covetousness; the run's seed will choose among them.)
+// ---------------------------------------------------------------------------------------------------------------------------
+
+/** Is Kai within reach of the Elder, standing on its island? */
+export function nearElder(state, course) {
+  const el = course.elder;
+  return !!el && state.standing === el.plat && Math.hypot(el.x - state.x, el.z - state.z) <= el.reach;
+}
+
+/**
+ * Called each step after the creatures' step. `carriedBefore` is the creature Kai carried when the press arrived. A press that sets
+ * a creature down beside the Elder is a gift: a liked species meets a lonely Elder (key released, 'elder-pleased'); any other is
+ * 'elder-refuses' and nothing is lost.
+ */
+function elderStep(state, course, carriedBefore, pressed) {
+  const el = course.elder;
+  const es = state.elder;
+  if (!pressed || carriedBefore < 0 || es.satisfied) return;
+  if (state.carry >= 0 || !nearElder(state, course)) return; // not set down, or not beside it
+  const c = state.creatures[carriedBefore];
+  if (es.desire === 'loneliness' && (el.likes || []).includes(c.species)) {
+    es.satisfied = true;
+    state.keysHeld[el.key] = true;
+    state.hasKey = true;
+    state.events.push('elder-pleased');
+  } else {
+    state.lastRefused = c.species;
+    state.events.push('elder-refuses');
+  }
 }
 
 /**

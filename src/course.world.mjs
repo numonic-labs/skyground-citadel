@@ -10,7 +10,7 @@
 //   Act 3  The Golden Swing    z 159 .. 183   grapple and swing down to the lower bank (y -2)
 //   Act 4  Lantern Rail        z 183 .. 253   rope bridge, two orbs, the key and its gate, the grind rail
 //   Act 5  Bramble Gauntlet    z 253 .. 338   sliding islands, orbs and sprouts
-//   Act 6  The Citadel Stair   z 338 .. 416   rising islands, the guardian, the citadel gate (y 4)
+//   Act 6  The Citadel Stair   z 338 .. 416   rising islands and the citadel gate (y 4), which needs the key Ossa holds, far to the west
 //
 // `side: true` marks platforms off the main line (the scripted player ignores them when it looks for the next platform).
 // Sky gems are the big optional pickups: one per out-of-the-way place. All distances are PROPOSED level data.
@@ -54,6 +54,10 @@ const platforms = [
   { id: 'ledge', x0: 7.5, x1: 11, z0: 362, z1: 368, y: LOW + 5.0, fenced: false, side: true }, // a gem ledge beside step 3 (a double jump up)
   { id: 'step4', x0: -5, x1: 5, z0: 372, z1: 380, y: LOW + 4.8, fenced: false },
   { id: 'summit', x0: -5, x1: 5, z0: 382.5, z1: 416, y: LOW + 6, fenced: false },
+  // Ossa's island: far west of the arch island V4, as far from the citadel gate as the course goes. A stepping stone off V4's raised
+  // plateau (its west edge is at x -65.5, 3 m up) and then the island itself. Nothing on the main line passes near it.
+  { id: 'elderStone', x0: -74.5, x1: -70, z0: -2.5, z1: 2.5, y: 3, fenced: false, side: true },
+  { id: 'elderIsle', x0: -88, x1: -77.5, z0: -6, z1: 6, y: 3, fenced: false, side: true },
 ];
 
 const coins = [
@@ -147,13 +151,14 @@ export const COURSE_WORLD = {
     { x: 3.6, z: 352.4, r: 1.3 }, // step 2 (the corner the orb does not reach)
     { x: 0, z: 386, r: 3 }, // the summit
     { x: 13.5, z: 125, r: 2.2 }, // the top of the sky road
+    { x: -83, z: 3.5, r: 2.5 }, // Ossa's island
   ],
   springs: [
     ...COURSE_S1_OPEN.springs,
     { x: 0, z: 97, r: 1, boost: 19.5, h: 0.62 }, // from the goal island of act 1 across the 9 m gap to the boardwalk
   ],
   // The only creatures that hurt are the brambles, each keeping to the nest it guards; the gust (X) dazes one for a few seconds.
-  // The shellback asleep before the citadel gate is woken by landing on its shell; it moves off the key it was lying on.
+  // (The citadel key used to be under a guardian that had to be landed on. It is now held by Ossa, below, so nothing here drops it.)
   enemies: [
     { kind: 'bramble', x: 0, y: LOW + 0.6, z: 263, r: 0.5, ax: 2.2, period: 3, phase: 0 },
     { kind: 'bramble', x: 0, y: LOW + 0.6, z: 294, r: 0.5, az: 2.0, period: 3.4, phase: 0 },
@@ -161,8 +166,39 @@ export const COURSE_WORLD = {
     { kind: 'bramble', x: 0, y: LOW + 3.0, z: 355, r: 0.5, ax: 2.2, period: 3, phase: 0 },
     { kind: 'bramble', x: 0, y: LOW + 5.4, z: 376, r: 0.5, ax: 2.2, period: 3, phase: Math.PI },
     { kind: 'bramble', x: 0, y: LOW + 6.6, z: 391, r: 0.5, ax: 2.2, period: 3, phase: 0 },
-    { kind: 'guardian', x: 0, y: LOW + 7.0, z: 400, r: 1.0, ax: 2.5, period: 4, phase: 0, stomp: true, drops: 'citadel' },
   ],
+  // Ossa, the Granmoss: the largest creature, too big to move and untouched by the gust or a landing on its shell. It sleeps on
+  // the citadel key on its own island. It has a desire (logic.mjs, "The Elder"); when the desire is met it rises and the key is
+  // released. `likes` are the species it welcomes as company.
+  elder: { id: 'ossa', name: 'Ossa', title: 'the Granmoss', plat: 'elderIsle', x: -83, z: 0, r: 1.7, reach: 4, key: 'citadel', likes: ['hopper'], desire: 'loneliness' },
+  // The scripted player's errand (logic.mjs, elderErrand): catch a hopper on the start island, carry it west over the lower
+  // island, the ruin island and the arch island, across the stepping stone to Ossa, set it down, and come back the same way.
+  elderErrand: {
+    catchPlat: 'A',
+    out: [
+      { x: -20, z: -2, dj: false },
+      { x: -23.8, z: -4, r: 1.3, dj: false },
+      { x: -35, z: -3, r: 1.5, dj: false },
+      { x: -50.5, z: 0.3, r: 1.8 },
+      { x: -55, z: 0.5, r: 1.2 },
+      { x: -61, z: 0, r: 1.2 },
+      { x: -64, z: -1.5, r: 1 },
+      { x: -72, z: 0, r: 1.2 },
+      { x: -81, z: 0, r: 1.5 },
+    ],
+    back: [
+      { x: -76, z: 0, r: 1.2 },
+      { x: -70, z: 0, r: 1.2 },
+      { x: -63, z: -1.5, r: 1.2 },
+      { x: -58, z: 0, r: 1.2 },
+      { x: -52, z: 0.3, r: 1.5 },
+      { x: -49, z: -3.5, r: 1, dj: false },
+      { x: -35, z: -3, r: 1.5 },
+      { x: -28, z: -0.5, r: 1.3, dj: false },
+      { x: -17.5, z: -1, r: 1.3, dj: false },
+      { x: -6, z: 3, dj: false },
+    ],
+  },
   // The creatures that live here (logic.mjs, "Living creatures"). The first group is at home; the second is out of place and
   // waits for the steward: each has a home within reach (the nearest is named).
   creatures: [
@@ -198,6 +234,7 @@ export const COURSE_WORLD = {
     E6: ['meadow', 'blossom'], i4: ['meadow'], summit: ['meadow'],
     // The visit islands: the ruins are dens with blossom over them, the arch isles are open lawn.
     V1: ['meadow', 'blossom'], V2: ['meadow'], V3: ['meadow', 'blossom'], V4: ['meadow'],
+    elderIsle: ['meadow'],
   },
   // Vine blooms. The islands' vines reach for the steward: press E near a bloom and its vine takes Kai's hand; he swings and lets
   // go with Space. The first is the great bloom over the sky river (the way across in act 3; the scripted player lets go at
@@ -297,14 +334,17 @@ export const COURSE_WORLD = {
     { z0: 210, z1: 217.5, text: 'Jump up to the glowing rail · Space jumps off it', until: (s) => !s.keysHeld.lantern },
     { z0: 240, z1: 249, text: 'A dry spring: X at its stone with a sky gem in hand wakes the stream, and water creatures can live there', until: (s) => s.springs[2] },
     { z0: 257, z1: 262, w: 4, text: 'Brambles guard their nests: keep clear, or X sends a gust that dazes one' },
-    { z0: 338, z1: 384, text: 'The citadel gate is locked. The key lies under the sleeping shellback, the largest creature here: land on its shell from above', until: (s) => !!s.keysHeld.citadel },
-    { z0: 384, z1: 402, text: 'The shellback is asleep on the citadel key: land ON its shell to wake it', until: (s) => !!s.keysHeld.citadel },
+    { z0: 396, z1: 408, text: 'The citadel gate is locked. The key is held by something too big to carry', until: (s) => !!s.keysHeld.citadel },
+    { z0: -9, z1: 9, x: -83, w: 8, text: 'Ossa, the Granmoss, sleeps on the citadel key. It is lonely: a friend set down beside it would wake it', until: (s) => !!s.keysHeld.citadel },
   ],
   // The sky river: soft-edged water under the boardwalk, raft, dock and swing.
   water: [{ x: 0, z: 150, w: 64, d: 96, y: -4.2 }],
   // Where the scripted player hands over from following an act 1 route to running the main line.
   routes: {
     ...COURSE_S1_OPEN.routes,
+    // The jump from the high road to island I2 clears the edge by about a tenth of a metre, so the scripted player may use its
+    // double jump there instead of depending on the frame it takes off on (the Elder errand shifts that frame).
+    stairs: COURSE_S1_OPEN.routes.stairs.map((w) => (w.z === 54 ? { x: w.x, z: w.z } : w)),
     // The dry sky road of act 2 (after the centre route of act 1), down onto the dock.
     skyroad: [
       ...COURSE_S1_OPEN.routes.centre.slice(0, -1),
@@ -323,7 +363,7 @@ export const COURSE_WORLD = {
 const CHECKPOINT_NAMES = [
   'Start meadow', 'Stream isle', 'Blossom isle', 'High road', 'West isle', 'Launch isle', 'Hidden islet', 'Ruin isle', 'Arch isle',
   'Far ruin', 'Far arch', 'Boardwalk', 'Dock', 'River bank', 'Gate isle', 'Rail end', 'Bramble isle', 'Nest isle', 'Stair foot',
-  'Second step', 'Summit', 'Sky road',
+  'Second step', 'Summit', 'Sky road', 'Ossa’s isle',
 ];
 COURSE_WORLD.checkpoints = COURSE_WORLD.checkpoints.map((c, i) => ({ ...c, name: CHECKPOINT_NAMES[i] || `Crystal ${i + 1}` }));
 
