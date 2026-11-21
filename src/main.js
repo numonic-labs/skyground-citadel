@@ -369,7 +369,6 @@ const feel = {
   bumpT: 0,
   gemBumpT: 0,
   hudKey: '',
-  clockKey: '',
   celebrate: 0,
   confettiT: 0,
 };
@@ -4364,16 +4363,11 @@ function openGates() {
   }
 }
 
-function fmtTime(sec) {
-  const m = Math.floor(sec / 60);
-  const r = sec - m * 60;
-  return `${m}:${r < 10 ? '0' : ''}${r.toFixed(1)}`;
-}
-
-// The finish card: time, coins, gems and falls, and one star each for most of the coins, most of the gems and few falls.
+// The finish card: coins, gems, creatures and springs, and one star each for rehoming most of the creatures, finding most of
+// the gems and waking every dry spring. There is no clock and no count of falls: nothing here rewards running past the grounds.
 function showFinish() {
   const gemsTotal = (COURSE.gems || []).length;
-  // One star each for rehoming most of the creatures, finding most of the gems, and few slips and falls. (The older single
+  // One star each for rehoming most of the creatures, finding most of the gems, and waking every dry spring. (The older single
   // sections have no creatures: their first star is for coins, as before.)
   const stars =
     (state.toRehome
@@ -4384,7 +4378,11 @@ function showFinish() {
         ? 1
         : 0) +
     (gemsTotal ? (state.gems >= Math.ceil(gemsTotal * 0.55) ? 1 : 0) : 1) +
-    (state.deaths + state.slips <= 3 ? 1 : 0);
+    (COURSE.streams
+      ? state.gemsSpent >= COURSE.streams.filter(q => q.dry).length
+        ? 1
+        : 0
+      : 1);
   const card = el('div', 'card');
   card.appendChild(
     el(
@@ -4403,7 +4401,6 @@ function showFinish() {
     tr.append(el('td', '', a), el('td', '', b));
     table.appendChild(tr);
   };
-  row('Time', fmtTime(state.t));
   row('Coins', `${state.coins} / ${COURSE.coins.length}`);
   if (gemsTotal) row('Sky gems', `${state.gems} / ${gemsTotal}`);
   if (state.toRehome)
@@ -4413,7 +4410,6 @@ function showFinish() {
       'Springs woken',
       `${state.gemsSpent} / ${COURSE.streams.filter(q => q.dry).length}`
     );
-  row('Slips and falls', `${state.slips} / ${state.deaths}`);
   if (COURSE.secrets)
     row(
       'Secrets',
@@ -4458,8 +4454,6 @@ function stepOnce() {
 const coinsTotal = COURSE.coins.length;
 const hudEl = document.getElementById('hud');
 const tipEl = document.getElementById('tip');
-const clockEl = document.getElementById('clock');
-const clockT = document.getElementById('clockT');
 const flashEl = document.getElementById('flash');
 const hurtEl = document.getElementById('hurt');
 function updateFeel(dtRaw, t) {
@@ -4629,7 +4623,7 @@ function updateFeel(dtRaw, t) {
   feel.gemBumpT = Math.max(0, feel.gemBumpT - dtRaw);
   // The counters (rebuilt only when something changed).
   const held = Object.keys(state.keysHeld);
-  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${state.deaths}|${state.slips}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
+  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
   if (key !== feel.hudKey) {
     feel.hudKey = key;
     const parts = [];
@@ -4673,8 +4667,6 @@ function updateFeel(dtRaw, t) {
           `CARRYING A ${state.creatures[state.carry].species.toUpperCase()}`
         )
       );
-    if (state.slips) parts.push(el('small', '', `Slips ${state.slips}`));
-    if (state.deaths) parts.push(el('small', '', `Falls ${state.deaths}`));
     coinsEl.replaceChildren(...parts);
   }
   // A tip at the bottom of the screen where a move is first needed.
@@ -4710,12 +4702,6 @@ function updateFeel(dtRaw, t) {
     tipEl.classList.toggle('show', !!tip);
   }
   hudEl.hidden = !started;
-  const ck = started ? fmtTime(state.t) : '';
-  if (ck !== feel.clockKey) {
-    feel.clockKey = ck;
-    clockEl.hidden = !started;
-    clockT.textContent = ck;
-  }
 }
 
 // ---------- secrets ----------
