@@ -285,7 +285,8 @@ export const COURSE_WORLD = {
   ],
   // Tips shown at the bottom of the screen where a move is first needed (x and w bound the strip; `until` retires a tip).
   tips: [
-    { z0: -8, z1: 10, w: 9, text: 'Space to jump, and again in the air · X near a creature picks it up, X again sets it down' },
+    { z0: -8, z1: 10, w: 9, text: 'Space to jump, and again in the air · X near a creature picks it up, X again sets it down', until: (s) => s.t > 8 },
+    { z0: -8, z1: 10, w: 9, text: 'The grounds have run wild. You are the steward: take creatures that are out of place home, wake dry springs with sky gems, and reach the citadel', until: (s) => s.t <= 8 || s.t > 20 },
     { z0: 34, z1: 41.5, w: 6, text: 'The dewling from the start lawn belongs in a stream like this one', until: (s) => s.rehomed > 0 },
     { z0: -8, z1: 4, x: -34, w: 7, text: 'The ruin is an old den: hoppers and sprouts are at home here, and a fed pair will raise a kit' },
     { z0: 4, z1: 16, x: 20, w: 5, text: 'The arch isles are open lawn with a way-crystal: a good place to bring a hopper' },
@@ -294,8 +295,9 @@ export const COURSE_WORLD = {
     { z0: 151, z1: 159.5, w: 3, text: 'E near the great bloom: its vine takes your hand · hold forward to swing · Space to let go' },
     { z0: 196, z1: 214, text: 'The gate needs the lantern key: it is on the blossom islet to the west, through the gap in the fence', until: (s) => !!s.keysHeld.lantern },
     { z0: 210, z1: 217.5, text: 'Jump up to the glowing rail · Space jumps off it', until: (s) => !s.keysHeld.lantern },
-    { z0: 240, z1: 249, text: 'A dry spring: X at its stone with a sky gem in hand wakes the stream', until: (s) => s.springs[2] },
+    { z0: 240, z1: 249, text: 'A dry spring: X at its stone with a sky gem in hand wakes the stream, and water creatures can live there', until: (s) => s.springs[2] },
     { z0: 257, z1: 262, w: 4, text: 'Brambles guard their nests: keep clear, or X sends a gust that dazes one' },
+    { z0: 338, z1: 384, text: 'The citadel gate is locked. The key lies under the sleeping shellback, the largest creature here: land on its shell from above', until: (s) => !!s.keysHeld.citadel },
     { z0: 384, z1: 402, text: 'The shellback is asleep on the citadel key: land ON its shell to wake it', until: (s) => !!s.keysHeld.citadel },
   ],
   // The sky river: soft-edged water under the boardwalk, raft, dock and swing.

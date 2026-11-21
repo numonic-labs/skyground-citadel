@@ -95,7 +95,7 @@ if (LEVEL === 's3') {
     'E or Shift: grapple at the golden orb · arrows move in any direction, hold → to swing · Space: let go';
 }
 document.getElementById('hint').textContent +=
-  ' · R / F or drag the mouse: turn the camera (C: reset)';
+  ' · R / F or drag the mouse: turn the camera (C: reset, V: auto camera on/off)';
 const BOT = q.has('bot'); // scripted player from logic.mjs
 const SHADOWS = q.get('shadows') !== '0';
 const PERF_SECONDS = Number(q.get('perf') || 0);
@@ -3800,7 +3800,7 @@ window.addEventListener('keydown', e => {
         el(
           'div',
           'keys',
-          'WASD or arrows: move · Space: jump, and again in the air · E: take a vine bloom · X: pick up or set down a creature, wake a spring, or a gust · Enter at a way-crystal: travel · mouse drag, R / F, T / G: camera · M: sound'
+          'WASD or arrows: move · Space: jump, and again in the air · E: take a vine bloom · X: pick up or set down a creature, wake a spring, or a gust · Enter at a way-crystal: travel · mouse drag, R / F, T / G: camera (V: auto camera on/off) · M: sound'
         )
       );
     }
@@ -3849,6 +3849,8 @@ let camUser = false;
 let camAssist = 0; // how far the automatic camera has swung from the level's default heading
 let camOffT = 0; // seconds Kai has travelled off the camera's grammar
 let camIdle = 0; // seconds since the player last moved the camera
+let camAutoOff = false; // V switches the automatic swing off, for players who find it unsettling
+let camVHeld = false;
 let dragging = false;
 // The camera's tilt: 0 is the usual view; positive lifts the camera to look down, negative drops it to look up at the sky.
 let camPitch = 0;
@@ -4321,7 +4323,7 @@ function onEvents(events) {
       fx.splash(sp.x, ky, sp.z, { n: 30, speed: 6, size: 0.3 });
       fx.ring(sp.x, ky + 0.2, sp.z, { color: 0x9fe8ff, speed: 6, n: 22 });
       audio.sfx('spring-awake');
-      toast('The stream runs again', 'Spring woken');
+      toast('The stream runs again', 'Spring woken · water creatures can live here');
     } else if (e === 'spring-needs-gem') {
       toast('A dry spring: it needs a sky gem');
     } else if (e === 'waveblock') {
@@ -5361,6 +5363,12 @@ function updateVisuals(dt) {
       camAssist = 0;
       camPitch = 0;
     }
+    const vDown = keys.has('KeyV');
+    if (vDown && !camVHeld) {
+      camAutoOff = !camAutoOff;
+      toast(camAutoOff ? 'Auto camera off' : 'Auto camera on', 'Camera');
+    }
+    camVHeld = vDown;
     // Tilt: T looks up, G looks down (the same physical keys on QWERTY and AZERTY), or the right stick.
     const tilt =
       (keys.has('KeyG') ? 1 : 0) -
@@ -5382,15 +5390,15 @@ function updateVisuals(dt) {
     }
     if (!camUser) {
       const speed = Math.hypot(state.vx, state.vz);
-      if (speed > 3 && !state.rope && !state.rail) {
+      if (speed > 3 && !state.rope && !state.rail && !camAutoOff) {
         // The grammar: behind Kai's travel in S1, and with the travel across the screen in the side-view levels.
         const want = wrapPi(
           Math.atan2(state.vx, state.vz) + sideMix * (Math.PI / 2)
         );
         const goal = wrapPi(defaultYaw() + camAssist);
-        if (Math.abs(wrapPi(want - goal)) > 0.7) {
+        if (Math.abs(wrapPi(want - goal)) > 0.9) {
           camOffT += dt;
-          if (camOffT > 0.8) {
+          if (camOffT > 1.6) {
             camAssist = wrapPi(want - defaultYaw());
             camOffT = 0;
           }
@@ -5398,7 +5406,7 @@ function updateVisuals(dt) {
       } else camOffT = 0;
       const diff = wrapPi(defaultYaw() + camAssist - camYaw);
       camYaw = wrapPi(
-        camYaw + diff * (1 - Math.exp(-1.6 * Math.max(dt, 1 / 120)))
+        camYaw + diff * (1 - Math.exp(-1.1 * Math.max(dt, 1 / 120)))
       );
     }
     const fx_ = Math.sin(camYaw);

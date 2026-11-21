@@ -61,8 +61,8 @@ export const PARAMS = {
   catchUp: 14, // m: the most the rim can be above him
   hangMin: 2.4, // m below the rim he hangs at least
   hangMax: 6.5, // m: the lowest he can hang or slide to
-  climbSpeed: 2.6, // m/s while a direction or jump is held
-  slideSpeed: 0.5, // m/s he slips back when nothing is held
+  climbSpeed: 4.5, // m/s while a direction or jump is held (the catch is a safety net, so the climb back is quick)
+  slideSpeed: 0.25, // m/s he slips back when nothing is held
   // Travel between checkpoints, springs and streams
   travelCost: 1, // coins to travel to a neighbouring checkpoint already reached
   travelNeighbours: 3, // how many of the nearest checkpoints count as neighbours
