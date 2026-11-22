@@ -171,6 +171,8 @@ export function createState(course) {
   };
   createCreatures(st, course);
   if (course.elder) st.elder = { desire: course.elder.desire, needs: { ...course.elder.needs }, satisfied: false };
+  st.clues = {}; // clue id -> true once heard (course.clues says what each one says)
+  st.clueLog = []; // the order they were heard in
   return st;
 }
 
@@ -462,6 +464,9 @@ export function step(state, input, course, dt = PARAMS.dt) {
   const carriedBefore = state.carry;
   let handUsed = course.creatures ? lifeStep(state, course, wPressed, dt) : false;
   if (course.elder) elderStep(state, course, carriedBefore, wPressed);
+  // The gate-keeper at the citadel gate speaks to anyone who comes near it.
+  const gk = course.gatekeeper;
+  if (gk && state.onGround && Math.hypot(gk.x - state.x, gk.z - state.z) <= gk.reach) foundClue(state, course, 'gate');
   if (wPressed && !handUsed && state.onGround && course.streams) {
     const si = course.streams.findIndex((st, i) => !state.springs[i] && st.spring && Math.hypot(st.spring.x - state.x, st.spring.z - state.z) <= PARAMS.springReach);
     if (si >= 0) {
@@ -483,6 +488,7 @@ export function step(state, input, course, dt = PARAMS.dt) {
         if (home) {
           state.rehomed += home;
           state.events.push('rehome');
+          foundClue(state, course, 'thanks');
         }
       } else state.events.push('spring-needs-gem');
     }
@@ -513,6 +519,7 @@ export function step(state, input, course, dt = PARAMS.dt) {
       state.banished += 1;
       state.lastWave.push(i);
       state.events.push('banish');
+      if (e.kind === 'bramble') foundClue(state, course, 'bramble'); // a dazed bramble mutters
     });
   }
 
@@ -1065,6 +1072,8 @@ function cloneState(s) {
     springs: [...s.springs],
     creatures: s.creatures && s.creatures.map((c) => ({ ...c })),
     elder: s.elder && { ...s.elder },
+    clues: { ...s.clues },
+    clueLog: [...s.clueLog],
     events: [],
   };
 }
@@ -1350,6 +1359,18 @@ export function creatureY(course, c, t = 0) {
 // beside it. (Later desires: hunger, boredom, covetousness; the run's seed will choose among them.)
 // ---------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * Hear a clue to where Ossa is (course.clues: gate, thanks, bramble). Each is heard once and says part of it: the gate-keeper who
+ * holds the key and what it wants; a rehomed creature where not to look; a dazed bramble a landmark. 'clue' is pushed once.
+ */
+function foundClue(state, course, id) {
+  if (!course.clues || !course.clues[id] || state.clues[id]) return;
+  state.clues[id] = true;
+  state.clueLog.push(id);
+  state.lastClue = id;
+  state.events.push('clue');
+}
+
 /** Is Kai within reach of the Elder, standing on its island? */
 export function nearElder(state, course) {
   const el = course.elder;
@@ -1424,6 +1445,7 @@ function lifeStep(state, course, pressed, dt) {
             state.rehomed += 1;
           }
           state.events.push('rehome');
+          foundClue(state, course, 'thanks');
         } else state.events.push('release');
       }
     } else {

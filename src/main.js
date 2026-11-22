@@ -100,7 +100,7 @@ if (LEVEL === 's3') {
     'E or Shift: grapple at the golden orb · arrows move in any direction, hold → to swing · Space: let go';
 }
 document.getElementById('hint').textContent +=
-  ' · R / F or drag the mouse: turn the camera (C: reset, V: auto camera on/off)';
+  ' · R / F or drag the mouse: turn the camera (C: reset, V: auto camera on/off, J: notes)';
 const BOT = q.has('bot'); // scripted player from logic.mjs
 const SHADOWS = q.get('shadows') !== '0';
 const PERF_SECONDS = Number(q.get('perf') || 0);
@@ -371,6 +371,7 @@ const feel = {
   ropeHit: true,
   sprayT: 0,
   toastT: 0,
+  clueT: 0,
   bumpT: 0,
   gemBumpT: 0,
   hudKey: '',
@@ -3760,6 +3761,11 @@ window.addEventListener('keydown', e => {
     toast(audio.toggleMute() ? 'Sound off' : 'Sound on');
     return;
   }
+  if ((e.key === 'j' || e.key === 'J') && started && COURSE.clues) {
+    notesOpen = !notesOpen;
+    drawNotes();
+    return;
+  }
   if (!started) {
     // The first key wakes the sound (the title's music starts); Enter or Space then starts the game.
     if (!woke) return wake();
@@ -3821,6 +3827,33 @@ function el(tag, cls, text) {
   if (cls) d.className = cls;
   if (text !== undefined) d.textContent = text;
   return d;
+}
+// A clue to where Ossa is: said in a wrapping panel for a few seconds, and kept in the notes (J).
+const clueEl = document.getElementById('clue');
+const notesEl = document.getElementById('notes');
+const CLUE_IDS = ['gate', 'thanks', 'bramble'];
+let notesOpen = false;
+function showClue(id) {
+  const c = COURSE.clues && COURSE.clues[id];
+  if (!c || notesOpen) return; // with the notes open the new clue is already in them
+  clueEl.replaceChildren(el('small', '', `A clue · ${c.source}`), document.createTextNode(c.text));
+  clueEl.classList.add('show');
+  feel.clueT = 10;
+}
+function drawNotes() {
+  notesEl.hidden = !notesOpen || !COURSE.clues;
+  if (notesEl.hidden) return;
+  clueEl.classList.remove('show'); // the notes say the same, and would sit on top of it
+  const rows = [el('h3', '', 'Notes · where is the key?')];
+  rows.push(el('p', '', 'The citadel gate is locked. The key is with something too big to carry.'));
+  for (const id of CLUE_IDS) {
+    const c = COURSE.clues[id];
+    const p = el('p', state.clues[id] ? '' : 'unheard');
+    p.appendChild(el('small', '', c.source));
+    p.appendChild(document.createTextNode(state.clues[id] ? c.text : 'Not heard yet'));
+    rows.push(p);
+  }
+  notesEl.replaceChildren(...rows);
 }
 const toastEl = document.getElementById('toast');
 function toast(text, small) {
@@ -4310,6 +4343,10 @@ function onEvents(events) {
         ky + 3.2,
         kz - Math.cos(camYaw) * 6
       );
+    } else if (e === 'clue') {
+      audio.sfx('area');
+      showClue(state.lastClue);
+      drawNotes();
     } else if (e === 'elder-pleased') {
       const el = COURSE.elder;
       const oy = COURSE.platforms.find(q => q.id === el.plat).y;
@@ -4656,11 +4693,15 @@ function updateFeel(dtRaw, t) {
     feel.toastT -= dtRaw;
     if (feel.toastT <= 0) toastEl.classList.remove('show');
   }
+  if (feel.clueT > 0) {
+    feel.clueT -= dtRaw;
+    if (feel.clueT <= 0) clueEl.classList.remove('show');
+  }
   feel.bumpT = Math.max(0, feel.bumpT - dtRaw);
   feel.gemBumpT = Math.max(0, feel.gemBumpT - dtRaw);
   // The counters (rebuilt only when something changed).
   const held = Object.keys(state.keysHeld);
-  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
+  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${state.clueLog.length}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
   if (key !== feel.hudKey) {
     feel.hudKey = key;
     const parts = [];
@@ -4696,6 +4737,8 @@ function updateFeel(dtRaw, t) {
       parts.push(
         el('span', 'steward', `Rehomed ${state.rehomed} / ${state.toRehome}`)
       );
+    if (state.clueLog.length)
+      parts.push(el('span', 'keytag', `NOTES ${state.clueLog.length} / 3 · J`));
     if (state.carry >= 0)
       parts.push(
         el(
@@ -4801,6 +4844,14 @@ function emoteTexture(kind) {
     g.fillStyle = '#5a6fb8';
     g.font = 'bold 24px system-ui, sans-serif';
     g.fillText('z z', 32, 30);
+  } else if (kind === 'talk') {
+    // Three dots: it has something to say.
+    g.fillStyle = '#3a3a55';
+    for (const dx of [-12, 0, 12]) {
+      g.beginPath();
+      g.arc(32 + dx, 30, 4.5, 0, Math.PI * 2);
+      g.fill();
+    }
   } else if (kind === 'hoard') {
     // A gold coin: it wants a hoard.
     g.fillStyle = '#e8a91a';
@@ -5048,11 +5099,81 @@ function updateOssa(dt, t) {
   }
   if (want) ossa.emote.position.y = 3.1 + Math.sin(t * 2) * 0.08;
 }
+// ---------- the gate-keeper: a small old lantern-bearer who remembers the sealing, waiting at the citadel gate ----------
+let gatekeeper = null;
+function buildGatekeeper() {
+  const gk = COURSE.gatekeeper;
+  const plat = COURSE.platforms.find(q => q.id === gk.plat);
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  const skin = mat(0x86b86a, { emissive: 0x2c5a26, emissiveIntensity: 0.45 });
+  const beardMat = mat(0xf2efe6, { roughness: 1 });
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 12), skin);
+  ball.scale.set(1, 0.95, 0.95);
+  ball.position.y = 0.45;
+  const beard = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.6, 8), beardMat);
+  beard.position.set(0, 0.2, 0.3);
+  beard.rotation.x = Math.PI * 0.92;
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.55, 8), mat(0x4a6fb3));
+  hat.position.set(0, 1.0, -0.02);
+  hat.rotation.z = 0.2;
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1c1826 });
+  for (const ex of [-0.14, 0.14]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), eyeMat);
+    eye.position.set(ex, 0.55, 0.38);
+    body.add(eye);
+  }
+  // The lantern on a short staff, held out to one side.
+  const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.1, 6), mat(0x6a4122));
+  staff.position.set(0.55, 0.55, 0.1);
+  const lamp = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15, 10, 8),
+    mat(0xffe08a, { emissive: 0xffc83d, emissiveIntensity: 1.2 })
+  );
+  lamp.position.set(0.55, 1.15, 0.1);
+  body.add(ball, beard, hat, staff, lamp);
+  g.add(body);
+  const emote = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+  emote.scale.set(0.6, 0.6, 1);
+  emote.position.y = 1.75;
+  emote.visible = false;
+  g.add(emote);
+  g.position.set(gk.x, plat.y, gk.z);
+  g.rotation.y = Math.PI; // faces the way the player comes, back along the stair
+  g.scale.setScalar(1.25);
+  scene.add(g);
+  return { g, body, emote, shown: false };
+}
+function updateGatekeeper(dt, t) {
+  if (!COURSE.gatekeeper) return;
+  if (!gatekeeper) gatekeeper = buildGatekeeper();
+  const gk = COURSE.gatekeeper;
+  const d = Math.hypot(state.x - gk.x, state.z - gk.z);
+  gatekeeper.g.visible = d < 120;
+  if (!gatekeeper.g.visible) return;
+  gatekeeper.body.position.y = Math.abs(Math.sin(t * 1.6)) * 0.04;
+  // Turn toward Kai when he is near.
+  if (d < 14) {
+    const want = Math.atan2(state.x - gk.x, state.z - gk.z);
+    gatekeeper.g.rotation.y += wrapPi(want - gatekeeper.g.rotation.y) * (1 - Math.exp(-4 * dt));
+  }
+  const want = !state.clues.gate && d < 28;
+  if (want !== gatekeeper.shown) {
+    gatekeeper.shown = want;
+    gatekeeper.emote.visible = want;
+    if (want) {
+      gatekeeper.emote.material.map = emoteTex.talk || (emoteTex.talk = emoteTexture('talk'));
+      gatekeeper.emote.material.needsUpdate = true;
+    }
+  }
+  if (want) gatekeeper.emote.position.y = 1.75 + Math.sin(t * 2.2) * 0.06;
+}
 // Flowers that grow where a creature left a seed (one batch).
 const FLOWER_MAX = 40;
 let flowerBatch = null;
 function updateLife(dt, t) {
   updateOssa(dt, t);
+  updateGatekeeper(dt, t);
   const cs = state.creatures || [];
   while (world.creatures.length < cs.length)
     world.creatures.push(makeCreature(cs[world.creatures.length])); // kits arrive

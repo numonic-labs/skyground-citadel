@@ -38,6 +38,19 @@
       background: rgba(12, 28, 60, .78); border: 1px solid rgba(255, 212, 90, .6); border-radius: 14px; padding: 9px 20px; opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; }
     #tip.show { opacity: 1; transform: translate(-50%, 0); }
 
+    /* A clue heard from the gate-keeper, a creature or a bramble: wraps, stays a few seconds, and is kept in the notes (J). */
+    #clue { position: fixed; left: 50%; top: 24%; transform: translate(-50%, 8px); width: min(620px, 88vw); box-sizing: border-box; padding: 14px 20px 16px;
+      color: #fff; font-size: 19px; font-weight: 700; line-height: 1.38; text-align: center; border-radius: 14px; pointer-events: none;
+      background: rgba(14, 32, 56, .93); border: 1px solid rgba(255, 212, 90, .6); opacity: 0; transition: opacity .35s, transform .35s; }
+    #clue.show { opacity: 1; transform: translate(-50%, 0); }
+    #clue small { display: block; font-size: 12px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: #ffd45a; margin-bottom: 6px; }
+    #notes { position: fixed; right: 16px; top: 86px; width: min(350px, 84vw); box-sizing: border-box; padding: 14px 18px 16px; color: #fff; font-size: 15px; line-height: 1.4;
+      border-radius: 14px; background: rgba(14, 32, 56, .94); border: 1px solid rgba(255, 255, 255, .25); pointer-events: none; }
+    #notes h3 { margin: 0 0 10px; font-size: 13px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #ffd45a; }
+    #notes p { margin: 0 0 10px; }
+    #notes small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; opacity: .7; }
+    #notes .unheard { opacity: .5; font-style: italic; }
+
     /* The way-crystal panel: where to travel. */
     #travel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); min-width: 340px; color: #fff; text-align: center; pointer-events: none;
       background: linear-gradient(160deg, rgba(14, 32, 56, .94), rgba(28, 54, 96, .9)); border: 2px solid rgba(79, 242, 224, .75); border-radius: 20px; padding: 18px 34px 16px; box-shadow: 0 18px 60px rgba(4, 12, 30, .5); }
@@ -89,6 +102,8 @@
   </div>
   <div id="toast"></div>
   <div id="tip"></div>
+  <div id="clue"></div>
+  <div id="notes" hidden></div>
   <div id="travel" hidden></div>
   <div id="flash"></div>
   <div id="hurt"></div>

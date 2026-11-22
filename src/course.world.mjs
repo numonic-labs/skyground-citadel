@@ -383,8 +383,8 @@ const ELDER_SITES = [
       { x: -17.5, z: -1, r: 1.3, dj: false },
       { x: -6, z: 3, dj: false },
     ],
-    // What the clues will say about it (slice 3): a heading from the start meadow, a distance, a landmark.
-    where: { heading: 'west', landmark: 'beyond the arch isles' },
+    // What the clues say about it: where NOT to look (when it is somewhere else) and a landmark (when it is here).
+    where: { heading: 'to the west', landmark: 'where the old steward’s stone still listens' },
   },
   {
     id: 'east',
@@ -414,7 +414,7 @@ const ELDER_SITES = [
       { x: 17.5, z: 10, r: 1.3, dj: false },
       { x: 0, z: 12 },
     ],
-    where: { heading: 'east', landmark: 'beyond the ruin isles' },
+    where: { heading: 'to the east', landmark: 'past the ruins, where the far blossom grows' },
   },
   {
     id: 'south',
@@ -441,7 +441,7 @@ const ELDER_SITES = [
       { x: 11.5, z: -6, r: 1.3, dj: false },
       { x: 2, z: 2, dj: false },
     ],
-    where: { heading: 'south', landmark: 'below the cloud line' },
+    where: { heading: 'below the meadow', landmark: 'under the lawns, where the cloud begins' },
   },
 ];
 
@@ -466,6 +466,33 @@ export function elderPlan(seed) {
   for (const n of ELDER_NEEDS) needs[n] = Math.round(r() * 100) / 100;
   const desire = LIVE_DESIRES.reduce((best, n) => (needs[n] > needs[best] ? n : best), LIVE_DESIRES[0]);
   return { site, siteId: ELDER_SITES[site].id, needs, desire };
+}
+
+/**
+ * The three clues to where Ossa is, for a run. Each is heard once, from a different source, and each is only part of the answer:
+ * the gate-keeper says who holds the key and what it wants (no place); a creature that has been rehomed says where NOT to look
+ * (one of the two islands Ossa is not on); a dazed bramble gives a landmark in the old steward's words, not a direction. Two
+ * clues narrow it down, three place it. The texts are pure functions of the seed.
+ */
+function elderClues(seed, site, desire) {
+  const others = ELDER_SITES.filter((s) => s.id !== site.id);
+  const wrong = others[Math.floor(mulberry32((seed >>> 0) ^ 0x51ed270b)() * others.length)];
+  return {
+    gate: {
+      source: 'The gate-keeper',
+      text: `The key went to Ossa, the Granmoss, before the gate sealed. It is too big to carry. Since the Lapse it has been ${
+        desire === 'covetousness' ? 'greedy for a hoard' : 'lonely'
+      }.`,
+    },
+    thanks: {
+      source: 'A creature you took home',
+      text: `Thank you, steward. If you are looking for the Granmoss, do not look ${wrong.where.heading}.`,
+    },
+    bramble: {
+      source: 'A bramble you dazed',
+      text: `The big old one sleeps ${site.where.landmark}, the bramble mutters.`,
+    },
+  };
 }
 
 /** The tip shown on Ossa's island: it says what Ossa is, and what its desire asks for. */
@@ -515,6 +542,9 @@ export function worldCourse(seed = DEFAULT_RUN) {
     tips: [...BASE_WORLD.tips, elderTip(plan.desire, site)],
     elder,
     elderErrand: { catchPlat: 'A', out: site.out, back: site.back },
+    clues: elderClues(seed, site, plan.desire),
+    // The gate-keeper waits on the summit lawn in front of the citadel gate and speaks to anyone who comes near.
+    gatekeeper: { x: 3.4, z: 402, plat: 'summit', reach: 4.5 },
   };
 }
 
