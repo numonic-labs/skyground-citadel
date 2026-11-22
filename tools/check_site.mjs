@@ -51,11 +51,14 @@ try {
   await title.screenshot({ path: path.join(OUT, 'site_title.png') });
   await title.close();
   // 2. The level, driven by the scripted player.
-  const play = await open('?autostart&bot&manual');
-  const z0 = await play.evaluate(() => window.__game.state.pos.z);
-  await play.evaluate(() => window.__game.advance(600, false));
+  // Run 1 is fixed so the check is the same every time. The scripted player first fetches a creature for Ossa, the Granmoss, and
+  // takes it across the islands, so after 15 s it has gone a long way, but not always along +Z: measure how far it moved.
+  const play = await open('?autostart&bot&manual&run=1');
+  const p0 = await play.evaluate(() => ({ x: window.__game.state.pos.x, z: window.__game.state.pos.z }));
+  await play.evaluate(() => window.__game.advance(900, false));
   await play.evaluate(() => window.__game.render());
-  result.advancedMetres = Math.round(((await play.evaluate(() => window.__game.state.pos.z)) - z0) * 10) / 10;
+  const p1 = await play.evaluate(() => ({ x: window.__game.state.pos.x, z: window.__game.state.pos.z }));
+  result.advancedMetres = Math.round(Math.hypot(p1.x - p0.x, p1.z - p0.z) * 10) / 10;
   result.renderInfo = await play.evaluate(() => window.__game.renderInfo && window.__game.renderInfo());
   await play.screenshot({ path: path.join(OUT, 'site_play.png') });
   await play.close();

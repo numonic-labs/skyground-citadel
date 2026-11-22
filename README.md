@@ -5,11 +5,14 @@ into something you can play, in the open, one pass at a time.
 
 **Play it:** https://numonic-skyground-citadel.vercel.app (a work in progress; a keyboard or a gamepad, and a desktop browser)
 
-**Tell us what broke or bored you:** https://discord.gg/tejSd5SkeD
+**Tell us what broke or bored you:** https://discord.gg/uVDQmtT66g
 
-You are Kai, steward of the citadel grounds. Carry creatures that are out of place back to where they live, wake the dry
-springs with sky gems, and make your way across six areas to the citadel gate. If you fall, the islands' vines catch you and
-you climb back.
+You are Kai, groundskeeper of the citadel. A season ago the grounds went untended (the Lapse); you are back, and the citadel
+has sealed itself. Carry creatures that are out of place back to where they live, wake the dry springs with sky gems, and
+make your way across six areas to the citadel gate. The gate is locked, and its key is held by Ossa, the Granmoss, too big
+to carry, somewhere on the grounds. Where it is, and what it wants (company, a hoard, food or a story), is different every
+playthrough: listen to the gate-keeper, to the creatures you take home and to the brambles, and keep your notes (J). If you
+fall, the islands' vines catch you and you climb back. There is no clock.
 
 ## How it is made
 
@@ -18,7 +21,7 @@ you climb back.
 - The models and textures were generated from frames of the source video (see `ASSETS.md`).
 - The code was written by an AI model (Claude) working from a design document and from human playtest notes. Each pass
   answers one playtest. Comments in the source say why things are the way they are.
-- Before it was shown, five independent AI players that had never seen the code played it through a text interface
+- Before the first version was shown, five independent AI players that had never seen the code played it through a text interface
   (`tools/agent_play.mjs`) against pass criteria written down in advance. All five reached the gate. They found it easy.
 
 ## Run it
@@ -43,10 +46,14 @@ There is no build step. `src/logic.mjs` is the whole game as pure, deterministic
 | W A S D or arrows | Move |
 | Space | Jump, and again in the air |
 | E | Take a vine bloom's hand; Space lets go |
-| X | Pick up or set down a creature, wake a spring, or send a gust |
+| X | Pick up or set down a creature, wake a spring, send a gust, or give Ossa what it wants |
 | Enter at a way-crystal | Travel to a neighbouring crystal you have reached, for a coin |
-| Mouse drag, R F, T G | Turn and tilt the camera |
+| Mouse drag, R F, T G | Turn and tilt the camera (C resets it, V switches the automatic camera off and on) |
+| J | Your notes: the clues you have heard |
 | P, M | Pause, sound |
+
+Each page load is a new run. Add `?run=N` to the address to play run N again (the finish card shows the number); `?bot` watches
+the scripted player.
 
 ## Secrets
 

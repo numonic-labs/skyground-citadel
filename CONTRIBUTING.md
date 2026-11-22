@@ -16,7 +16,7 @@ This repository is the game's source of truth. Changes made here are what gets d
 ## What we are looking for
 
 Bug fixes, clearer feedback to the player, performance on modest machines, touch controls, and new secrets. Large changes
-to the level or to Kai's abilities are best raised in the Discord first (https://discord.gg/tejSd5SkeD), so you do not
+to the level or to Kai's abilities are best raised in the Discord first (https://discord.gg/uVDQmtT66g), so you do not
 build something that cannot be merged.
 
 ## Licences
