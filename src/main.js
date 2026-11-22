@@ -372,6 +372,7 @@ const feel = {
   sprayT: 0,
   toastT: 0,
   clueT: 0,
+  keyPopT: 0, // the HUD key badge pulses for this long after the key reaches Kai
   bumpT: 0,
   gemBumpT: 0,
   hudKey: '',
@@ -4401,9 +4402,9 @@ function onEvents(events) {
       showClue(state.lastClue);
       drawNotes();
     } else if (e === 'elder-pleased') {
-      const el = COURSE.elder;
-      const oy = COURSE.platforms.find(q => q.id === el.plat).y;
-      fx.burst(el.x, oy + 2.4, el.z, {
+      const ed = COURSE.elder; // not `el`: that is the DOM helper used below
+      const oy = COURSE.platforms.find(q => q.id === ed.plat).y;
+      fx.burst(ed.x, oy + 2.4, ed.z, {
         n: 40,
         color: 0xff9fc6,
         color2: 0xfff3a0,
@@ -4411,9 +4412,28 @@ function onEvents(events) {
         life: 1.4,
         gravity: 1,
       });
-      fx.ring(el.x, oy + 0.4, el.z, { color: 0xff9fc6, speed: 6, n: 24 });
+      fx.ring(ed.x, oy + 0.4, ed.z, { color: 0xff9fc6, speed: 6, n: 24 });
       audio.sfx('rehome');
-      toast('“Thank you, little steward. The key is yours.”', `${el.name}, ${el.title}`);
+      toast('“Thank you, little steward.”', `${ed.name} gives you the citadel key`);
+      // The golden key lifts from under Ossa and flies to Kai (updateOssa), then the HUD badge pulses. Say where it goes.
+      if (ossa) {
+        const from = new THREE.Vector3();
+        ossa.key.getWorldPosition(from);
+        ossa.fly = { t: 0, from };
+        ossa.flyKey.visible = true;
+        ossa.flyKey.position.copy(from);
+      }
+      audio.sfx('key');
+      if (!notesOpen) {
+        clueEl.replaceChildren(
+          el('small', '', 'You have the citadel key'),
+          document.createTextNode('Take it to the gate at the top of the Citadel Stair.')
+        );
+        clueEl.classList.add('show');
+        feel.clueT = 7;
+      }
+    } else if (e === 'elder-far') {
+      toast('Come closer to Ossa', 'Then press X');
     } else if (e === 'elder-refuses') {
       const el = COURSE.elder;
       toast(
@@ -4755,11 +4775,12 @@ function updateFeel(dtRaw, t) {
     feel.clueT -= dtRaw;
     if (feel.clueT <= 0) clueEl.classList.remove('show');
   }
+  feel.keyPopT = Math.max(0, feel.keyPopT - dtRaw);
   feel.bumpT = Math.max(0, feel.bumpT - dtRaw);
   feel.gemBumpT = Math.max(0, feel.gemBumpT - dtRaw);
   // The counters (rebuilt only when something changed).
   const held = Object.keys(state.keysHeld);
-  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${state.clueLog.length}|${state.fruit}|${state.book}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
+  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${feel.keyPopT > 0}|${state.clueLog.length}|${state.fruit}|${state.book}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
   if (key !== feel.hudKey) {
     feel.hudKey = key;
     const parts = [];
@@ -4787,7 +4808,11 @@ function updateFeel(dtRaw, t) {
     }
     for (const id of held)
       parts.push(
-        el('span', 'keytag', id === 'key' ? 'KEY' : `${id.toUpperCase()} KEY`)
+        el(
+          'span',
+          'keytag' + (id === 'citadel' && feel.keyPopT > 0 ? ' pop' : ''),
+          id === 'key' ? 'KEY' : `${id.toUpperCase()} KEY`
+        )
       );
     if (COURSE.key && !held.length)
       parts.push(el('span', 'keytag', 'FIND THE KEY'));
@@ -5153,13 +5178,39 @@ function buildOssa() {
   g.position.set(el.x, plat.y, el.z);
   g.rotation.y = el.facing ?? Math.PI / 2; // facing the stepping stone it is reached by
   scene.add(g);
-  return { g, body, eyes, lids, emote, rise: 0, key: keyG, shown: '' };
+  // The same key, free of Ossa, for the flight to Kai when its desire is met.
+  const flyKey = keyG.clone();
+  flyKey.visible = false;
+  flyKey.scale.setScalar(3.2);
+  const keyHalo = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: cloudTex, color: 0xffe08a, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  keyHalo.scale.set(1.6, 1.6, 1);
+  flyKey.add(keyHalo);
+  scene.add(flyKey);
+  return { g, body, eyes, lids, emote, rise: 0, key: keyG, flyKey, fly: null, shown: '' };
 }
 function updateOssa(dt, t) {
   if (!COURSE.elder) return;
   if (!ossa) ossa = buildOssa();
   const el = COURSE.elder;
   const d = Math.hypot(state.x - el.x, state.z - el.z);
+  // The key's flight from under Ossa to Kai (1.4 s, in an arc, spinning), then a burst and a pulse on the HUD badge.
+  if (ossa.fly) {
+    ossa.fly.t += dt;
+    const p = Math.min(1, ossa.fly.t / 1.4);
+    const to = new THREE.Vector3(kaiRoot.position.x, kaiRoot.position.y + 1.7, kaiRoot.position.z);
+    ossa.flyKey.position.lerpVectors(ossa.fly.from, to, p * p * (3 - 2 * p));
+    ossa.flyKey.position.y += Math.sin(Math.PI * p) * 2.2;
+    ossa.flyKey.rotation.y = t * 9;
+    if (p >= 1) {
+      ossa.flyKey.visible = false;
+      ossa.fly = null;
+      fx.burst(to.x, to.y, to.z, { n: 30, color: 0xffd75e, color2: 0xffffff, speed: 5, life: 1, gravity: 1 });
+      fx.ring(to.x, to.y - 0.4, to.z, { color: 0xffd75e, speed: 6, n: 20 });
+      feel.keyPopT = 1.8;
+    }
+  }
   ossa.g.visible = d < 140;
   if (!ossa.g.visible) return;
   const happy = state.elder.satisfied;

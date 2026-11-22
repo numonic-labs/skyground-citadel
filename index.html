@@ -23,6 +23,8 @@
     .ico-gem { width: 13px; height: 13px; background: linear-gradient(135deg, #b5fff6, #2fd8c9 55%, #0d8f86); transform: rotate(45deg); box-shadow: 0 0 8px rgba(80, 240, 225, .7); margin: 0 3px; }
     .hearts { letter-spacing: 2px; color: #ff6f8f; text-shadow: 0 0 6px rgba(255, 90, 130, .6); }
     .hearts i { font-style: normal; color: rgba(255, 255, 255, .28); text-shadow: none; }
+    @keyframes keypop { 0% { transform: scale(1); } 40% { transform: scale(1.5); box-shadow: 0 0 22px rgba(255, 220, 90, 1); } 100% { transform: scale(1); } }
+    .keytag.pop { animation: keypop .6s ease-out 3; }
     .keytag { font-size: 12px; font-weight: 800; letter-spacing: .06em; color: #3a2a00; background: linear-gradient(#ffe27a, #ffc02e); border-radius: 9px; padding: 2px 8px; box-shadow: 0 0 8px rgba(255, 200, 60, .6); }
     #perf { font-size: 12px; font-weight: 500; margin-top: 4px; }
 

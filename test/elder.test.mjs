@@ -240,3 +240,26 @@ test('Ossa does not stop Kai when he is far above its shell, or elsewhere on the
   step(far, { fwd: 1, right: 0, jump: false }, C);
   assert.ok(Math.abs(far.x - x0) < 1, 'nothing changes on the start meadow');
 });
+
+test('a press on Ossa\'s island that is too far to count says so, and one far away or on another island does not', () => {
+  const C = worldCourse(seedFor['west/hunger']);
+  const isle = C.platforms.find((q) => q.id === C.elder.plat);
+  const place = (dist) => {
+    const s = createState(C);
+    const th = C.elder.facing;
+    Object.assign(s, { x: C.elder.x + Math.sin(th + Math.PI) * dist, z: C.elder.z + Math.cos(th + Math.PI) * dist, y: isle.y, standing: isle.id, onGround: true });
+    return s;
+  };
+  const mid = place(C.elder.reach + 2); // on its island, beyond its reach
+  pressX(mid, C);
+  assert.ok(mid.events.includes('elder-far'));
+  assert.ok(!mid.keysHeld.citadel);
+  const start = createState(C);
+  pressX(start, C);
+  assert.ok(!start.events.includes('elder-far'), 'nothing on the start meadow');
+  const near = place(3);
+  near.fruit = 9;
+  pressX(near, C);
+  assert.ok(near.events.includes('elder-pleased') && !near.events.includes('elder-far'));
+  assert.equal(near.fruit, 4, 'five of the nine fruit were given');
+});

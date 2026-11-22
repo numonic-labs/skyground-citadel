@@ -1439,7 +1439,14 @@ export function nearElder(state, course) {
 function elderStep(state, course, carriedBefore, pressed) {
   const el = course.elder;
   const es = state.elder;
-  if (!pressed || es.satisfied || !nearElder(state, course)) return;
+  if (!pressed || es.satisfied) return;
+  if (!nearElder(state, course)) {
+    // On Ossa's island but not close enough, with nothing carried or caught: say so rather than doing nothing.
+    if (carriedBefore < 0 && state.carry < 0 && state.standing === el.plat && Math.hypot(el.x - state.x, el.z - state.z) <= el.reach + 6) {
+      state.events.push('elder-far');
+    }
+    return;
+  }
   const pleased = () => {
     es.satisfied = true;
     state.keysHeld[el.key] = true;
