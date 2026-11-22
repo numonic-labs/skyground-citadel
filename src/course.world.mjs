@@ -54,10 +54,6 @@ const platforms = [
   { id: 'ledge', x0: 7.5, x1: 11, z0: 362, z1: 368, y: LOW + 5.0, fenced: false, side: true }, // a gem ledge beside step 3 (a double jump up)
   { id: 'step4', x0: -5, x1: 5, z0: 372, z1: 380, y: LOW + 4.8, fenced: false },
   { id: 'summit', x0: -5, x1: 5, z0: 382.5, z1: 416, y: LOW + 6, fenced: false },
-  // Ossa's island: far west of the arch island V4, as far from the citadel gate as the course goes. A stepping stone off V4's raised
-  // plateau (its west edge is at x -65.5, 3 m up) and then the island itself. Nothing on the main line passes near it.
-  { id: 'elderStone', x0: -74.5, x1: -70, z0: -2.5, z1: 2.5, y: 3, fenced: false, side: true },
-  { id: 'elderIsle', x0: -88, x1: -77.5, z0: -6, z1: 6, y: 3, fenced: false, side: true },
 ];
 
 const coins = [
@@ -132,7 +128,7 @@ const gems = [
   { x: 9.2, y: 4.3, z: 365 }, // the ledge beside step 3
 ];
 
-export const COURSE_WORLD = {
+const BASE_WORLD = {
   id: 'world',
   killY: -12,
   start: COURSE_S1_OPEN.start,
@@ -151,7 +147,6 @@ export const COURSE_WORLD = {
     { x: 3.6, z: 352.4, r: 1.3 }, // step 2 (the corner the orb does not reach)
     { x: 0, z: 386, r: 3 }, // the summit
     { x: 13.5, z: 125, r: 2.2 }, // the top of the sky road
-    { x: -83, z: 3.5, r: 2.5 }, // Ossa's island
   ],
   springs: [
     ...COURSE_S1_OPEN.springs,
@@ -167,38 +162,6 @@ export const COURSE_WORLD = {
     { kind: 'bramble', x: 0, y: LOW + 5.4, z: 376, r: 0.5, ax: 2.2, period: 3, phase: Math.PI },
     { kind: 'bramble', x: 0, y: LOW + 6.6, z: 391, r: 0.5, ax: 2.2, period: 3, phase: 0 },
   ],
-  // Ossa, the Granmoss: the largest creature, too big to move and untouched by the gust or a landing on its shell. It sleeps on
-  // the citadel key on its own island. It has a desire (logic.mjs, "The Elder"); when the desire is met it rises and the key is
-  // released. `likes` are the species it welcomes as company.
-  elder: { id: 'ossa', name: 'Ossa', title: 'the Granmoss', plat: 'elderIsle', x: -83, z: 0, r: 1.7, reach: 4, key: 'citadel', likes: ['hopper'], desire: 'loneliness' },
-  // The scripted player's errand (logic.mjs, elderErrand): catch a hopper on the start island, carry it west over the lower
-  // island, the ruin island and the arch island, across the stepping stone to Ossa, set it down, and come back the same way.
-  elderErrand: {
-    catchPlat: 'A',
-    out: [
-      { x: -20, z: -2, dj: false },
-      { x: -23.8, z: -4, r: 1.3, dj: false },
-      { x: -35, z: -3, r: 1.5, dj: false },
-      { x: -50.5, z: 0.3, r: 1.8 },
-      { x: -55, z: 0.5, r: 1.2 },
-      { x: -61, z: 0, r: 1.2 },
-      { x: -64, z: -1.5, r: 1 },
-      { x: -72, z: 0, r: 1.2 },
-      { x: -81, z: 0, r: 1.5 },
-    ],
-    back: [
-      { x: -76, z: 0, r: 1.2 },
-      { x: -70, z: 0, r: 1.2 },
-      { x: -63, z: -1.5, r: 1.2 },
-      { x: -58, z: 0, r: 1.2 },
-      { x: -52, z: 0.3, r: 1.5 },
-      { x: -49, z: -3.5, r: 1, dj: false },
-      { x: -35, z: -3, r: 1.5 },
-      { x: -28, z: -0.5, r: 1.3, dj: false },
-      { x: -17.5, z: -1, r: 1.3, dj: false },
-      { x: -6, z: 3, dj: false },
-    ],
-  },
   // The creatures that live here (logic.mjs, "Living creatures"). The first group is at home; the second is out of place and
   // waits for the steward: each has a home within reach (the nearest is named).
   creatures: [
@@ -234,7 +197,6 @@ export const COURSE_WORLD = {
     E6: ['meadow', 'blossom'], i4: ['meadow'], summit: ['meadow'],
     // The visit islands: the ruins are dens with blossom over them, the arch isles are open lawn.
     V1: ['meadow', 'blossom'], V2: ['meadow'], V3: ['meadow', 'blossom'], V4: ['meadow'],
-    elderIsle: ['meadow'],
   },
   // Vine blooms. The islands' vines reach for the steward: press E near a bloom and its vine takes Kai's hand; he swings and lets
   // go with Space. The first is the great bloom over the sky river (the way across in act 3; the scripted player lets go at
@@ -335,7 +297,6 @@ export const COURSE_WORLD = {
     { z0: 240, z1: 249, text: 'A dry spring: X at its stone with a sky gem in hand wakes the stream, and water creatures can live there', until: (s) => s.springs[2] },
     { z0: 257, z1: 262, w: 4, text: 'Brambles guard their nests: keep clear, or X sends a gust that dazes one' },
     { z0: 396, z1: 408, text: 'The citadel gate is locked. The key is held by something too big to carry', until: (s) => !!s.keysHeld.citadel },
-    { z0: -9, z1: 9, x: -83, w: 8, text: 'Ossa, the Granmoss, sleeps on the citadel key. It is lonely: a friend set down beside it would wake it', until: (s) => !!s.keysHeld.citadel },
   ],
   // The sky river: soft-edged water under the boardwalk, raft, dock and swing.
   water: [{ x: 0, z: 150, w: 64, d: 96, y: -4.2 }],
@@ -363,14 +324,206 @@ export const COURSE_WORLD = {
 const CHECKPOINT_NAMES = [
   'Start meadow', 'Stream isle', 'Blossom isle', 'High road', 'West isle', 'Launch isle', 'Hidden islet', 'Ruin isle', 'Arch isle',
   'Far ruin', 'Far arch', 'Boardwalk', 'Dock', 'River bank', 'Gate isle', 'Rail end', 'Bramble isle', 'Nest isle', 'Stair foot',
-  'Second step', 'Summit', 'Sky road', 'Ossa’s isle',
+  'Second step', 'Summit', 'Sky road',
 ];
-COURSE_WORLD.checkpoints = COURSE_WORLD.checkpoints.map((c, i) => ({ ...c, name: CHECKPOINT_NAMES[i] || `Crystal ${i + 1}` }));
+BASE_WORLD.checkpoints = BASE_WORLD.checkpoints.map((c, i) => ({ ...c, name: CHECKPOINT_NAMES[i] || `Crystal ${i + 1}` }));
 
 // Pickups on a visit island hang above its real terrain (as in course.s1o.mjs).
-for (const c of COURSE_WORLD.gems) {
-  const p = COURSE_WORLD.platforms.find((q) => q.hm && c.x >= q.x0 && c.x <= q.x1 && c.z >= q.z0 && c.z <= q.z1);
+for (const c of BASE_WORLD.gems) {
+  const p = BASE_WORLD.platforms.find((q) => q.hm && c.x >= q.x0 && c.x <= q.x1 && c.z >= q.z0 && c.z <= q.z1);
   if (!p) continue;
   const h = surfaceY(p, c.x, c.z);
   if (h !== null) c.y = +(h + Math.max(0.9, Math.min(2.2, c.y - p.y))).toFixed(2);
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Ossa, the Granmoss, and where to find it. The islands drift and re-seat after every Lapse, so each run (a seed) puts Ossa on
+// one of three islands, far from the citadel gate, and gives it a desire drawn from its needs (the same kind of model as the
+// smaller creatures' hunger and energy). `worldCourse(seed)` returns the world course with that one island built in;
+// COURSE_WORLD is the course for the default run. Every site is a stepping stone (a single jump from its neighbour's edge) and
+// an island, with a way-crystal on it, and a scripted-player errand out and back (tested in test/world.test.mjs).
+// ---------------------------------------------------------------------------------------------------------------------------
+
+/** The needs the Elder has. Only some can be met in this version (LIVE_DESIRES); its desire is the strongest of those. */
+export const ELDER_NEEDS = ['loneliness', 'hunger', 'boredom', 'covetousness'];
+export const LIVE_DESIRES = ['loneliness', 'covetousness'];
+const TRIBUTE_COINS = 30; // what a covetous Ossa asks: a hoard of coins pressed into its shell
+
+const ELDER_SITES = [
+  {
+    id: 'west',
+    // Far west of the arch island V4, off its raised plateau (its west edge is at x -65.5, 3 m up).
+    platforms: [
+      { id: 'elderStone', x0: -74.5, x1: -70, z0: -2.5, z1: 2.5, y: 3, fenced: false, side: true },
+      { id: 'elderIsle', x0: -88, x1: -77.5, z0: -6, z1: 6, y: 3, fenced: false, side: true },
+    ],
+    checkpoint: { x: -83, z: 3.5, r: 2.5 },
+    elder: { x: -83, z: 0, facing: Math.PI / 2 },
+    // Catch a hopper on the start island, carry it west over the lower island, the ruin island and the arch island.
+    out: [
+      { x: -20, z: -2, dj: false },
+      { x: -23.8, z: -4, r: 1.3, dj: false },
+      { x: -35, z: -3, r: 1.5, dj: false },
+      { x: -50.5, z: 0.3, r: 1.8 },
+      { x: -55, z: 0.5, r: 1.2 },
+      { x: -61, z: 0, r: 1.2 },
+      { x: -64, z: -1.5, r: 1 },
+      { x: -72, z: 0, r: 1.2 },
+      { x: -81, z: 0, r: 1.5 },
+    ],
+    back: [
+      { x: -76, z: 0, r: 1.2 },
+      { x: -70, z: 0, r: 1.2 },
+      { x: -63, z: -1.5, r: 1.2 },
+      { x: -58, z: 0, r: 1.2 },
+      { x: -52, z: 0.3, r: 1.5 },
+      { x: -49, z: -3.5, r: 1, dj: false },
+      { x: -35, z: -3, r: 1.5 },
+      { x: -28, z: -0.5, r: 1.3, dj: false },
+      { x: -17.5, z: -1, r: 1.3, dj: false },
+      { x: -6, z: 3, dj: false },
+    ],
+    // What the clues will say about it (slice 3): a heading from the start meadow, a distance, a landmark.
+    where: { heading: 'west', landmark: 'beyond the arch isles' },
+  },
+  {
+    id: 'east',
+    // Far east of the ruin island V3, whose flat top ends at x 42.5.
+    platforms: [
+      { id: 'elderStone', x0: 46.5, x1: 51, z0: 3.5, z1: 8.5, y: 3, fenced: false, side: true },
+      { id: 'elderIsle', x0: 54, x1: 64.5, z0: -2, z1: 10, y: 3, fenced: false, side: true },
+    ],
+    checkpoint: { x: 59.5, z: 7.5, r: 2.5 },
+    elder: { x: 59.5, z: 4, facing: -Math.PI / 2 },
+    out: [
+      { x: 7.2, z: 10, r: 1.3, dj: false },
+      { x: 20, z: 10, r: 1.5, dj: false },
+      { x: 31, z: 10, r: 1.2 },
+      { x: 33.5, z: 8.7, r: 1, dj: false },
+      { x: 40, z: 6, r: 1.5 },
+      { x: 44, z: 5.5, r: 1.2 },
+      { x: 49, z: 6, r: 1.2 },
+      { x: 57, z: 5, r: 1.5 },
+    ],
+    back: [
+      { x: 52, z: 6, r: 1.2 },
+      { x: 46, z: 6, r: 1.2 },
+      { x: 41, z: 6, r: 1.5 },
+      { x: 33.5, z: 8.7, r: 1, dj: false },
+      { x: 22, z: 10, r: 1.5 },
+      { x: 17.5, z: 10, r: 1.3, dj: false },
+      { x: 0, z: 12 },
+    ],
+    where: { heading: 'east', landmark: 'beyond the ruin isles' },
+  },
+  {
+    id: 'south',
+    // South of the lower island L2, below the meadow's level.
+    platforms: [
+      { id: 'elderStone', x0: 12.5, x1: 17.5, z0: -22.5, z1: -18, y: -3.5, fenced: false, side: true },
+      { id: 'elderIsle', x0: 9.5, x1: 20.5, z0: -35, z1: -26, y: -3.5, fenced: false, side: true },
+    ],
+    checkpoint: { x: 15, z: -27.5, r: 2.5 },
+    elder: { x: 15, z: -31, facing: 0 },
+    out: [
+      { x: 7, z: -5, r: 1.5, dj: false },
+      { x: 13, z: -8, r: 1.5, dj: false },
+      { x: 15, z: -12, r: 1.5, dj: false },
+      { x: 15, z: -17, r: 1.2 },
+      { x: 15, z: -20, r: 1.2 },
+      { x: 15, z: -28, r: 1.5 },
+    ],
+    back: [
+      { x: 15, z: -24, r: 1.2, dj: false },
+      { x: 15, z: -20.2, r: 0.9, dj: false }, // land on the stone first
+      { x: 15, z: -15, r: 1.2 },
+      { x: 15, z: -12, r: 1.5, dj: false },
+      { x: 11.5, z: -6, r: 1.3, dj: false },
+      { x: 2, z: 2, dj: false },
+    ],
+    where: { heading: 'south', landmark: 'below the cloud line' },
+  },
+];
+
+function mulberry32(a) {
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * What a run's seed decides about Ossa: the island (`site`), how strong each of its needs is (0 to 1, like a creature's hunger),
+ * and its desire, the strongest of the needs that can be met in this version. Pure and deterministic.
+ */
+export function elderPlan(seed) {
+  const r = mulberry32((seed >>> 0) ^ 0x9e3779b9);
+  const site = Math.floor(r() * ELDER_SITES.length);
+  const needs = {};
+  for (const n of ELDER_NEEDS) needs[n] = Math.round(r() * 100) / 100;
+  const desire = LIVE_DESIRES.reduce((best, n) => (needs[n] > needs[best] ? n : best), LIVE_DESIRES[0]);
+  return { site, siteId: ELDER_SITES[site].id, needs, desire };
+}
+
+/** The tip shown on Ossa's island: it says what Ossa is, and what its desire asks for. */
+function elderTip(desire, site) {
+  const ask =
+    desire === 'covetousness'
+      ? `It wants a hoard: X beside it with ${TRIBUTE_COINS} coins in your pocket`
+      : 'It is lonely: a friend set down beside it would wake it';
+  return {
+    z0: site.elder.z - 9,
+    z1: site.elder.z + 9,
+    x: site.elder.x,
+    w: 8,
+    text: `Ossa, the Granmoss, sleeps on the citadel key. ${ask}`,
+    until: (s) => !!s.keysHeld.citadel,
+  };
+}
+
+/** The world course for a run: the base course with Ossa's island for this seed built in. */
+export function worldCourse(seed = DEFAULT_RUN) {
+  const plan = elderPlan(seed);
+  const site = ELDER_SITES[plan.site];
+  const elder = {
+    id: 'ossa',
+    name: 'Ossa',
+    title: 'the Granmoss',
+    plat: 'elderIsle',
+    x: site.elder.x,
+    z: site.elder.z,
+    facing: site.elder.facing,
+    r: 1.7,
+    reach: 4,
+    key: 'citadel',
+    likes: ['hopper'], // the company it welcomes, when it is lonely
+    tribute: { coins: TRIBUTE_COINS }, // what it asks, when it is covetous
+    desire: plan.desire,
+    needs: plan.needs,
+    site: site.id,
+    where: site.where,
+    seed: seed >>> 0,
+  };
+  return {
+    ...BASE_WORLD,
+    platforms: [...BASE_WORLD.platforms, ...site.platforms],
+    checkpoints: [...BASE_WORLD.checkpoints, { ...site.checkpoint, name: 'Ossa’s isle' }],
+    habitats: { ...BASE_WORLD.habitats, elderIsle: ['meadow'] },
+    tips: [...BASE_WORLD.tips, elderTip(plan.desire, site)],
+    elder,
+    elderErrand: { catchPlat: 'A', out: site.out, back: site.back },
+  };
+}
+
+/** The run the tests and tools use unless they pick one: Ossa on the west island, wanting company. */
+export const DEFAULT_RUN = (() => {
+  for (let s = 1; s < 10000; s++) {
+    const p = elderPlan(s);
+    if (p.siteId === 'west' && p.desire === 'loneliness') return s;
+  }
+  return 1;
+})();
+export const COURSE_WORLD = worldCourse(DEFAULT_RUN);

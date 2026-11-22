@@ -170,7 +170,7 @@ export function createState(course) {
     events: [], // cleared each step; strings such as 'coin', 'respawn', 'complete', 'jump', 'land', 'spring', 'hurt'
   };
   createCreatures(st, course);
-  if (course.elder) st.elder = { desire: course.elder.desire, satisfied: false };
+  if (course.elder) st.elder = { desire: course.elder.desire, needs: { ...course.elder.needs }, satisfied: false };
   return st;
 }
 
@@ -1214,6 +1214,11 @@ function elderErrand(state, course, options) {
   const press = (input) => ({ ...input, wave: !state.prevWave }); // a fresh press of X
   const still = { fwd: 0, right: 0, jump: false, grapple: false };
   if (state.elder.satisfied) return followNav(state, course, 'elder-back', er.back, options);
+  if (state.elder.desire === 'covetousness') {
+    // A hoard, not company: go straight to Ossa. (A test gives the scripted player the coins; it does not gather them.)
+    if (nearElder(state, course) && state.onGround) return state.coins - state.spent >= el.tribute.coins ? press(still) : null;
+    return followNav(state, course, 'elder-out', er.out, options);
+  }
   if (state.carry < 0) {
     let best = null;
     let bestD = Infinity;
@@ -1359,17 +1364,33 @@ export function nearElder(state, course) {
 function elderStep(state, course, carriedBefore, pressed) {
   const el = course.elder;
   const es = state.elder;
-  if (!pressed || carriedBefore < 0 || es.satisfied) return;
-  if (state.carry >= 0 || !nearElder(state, course)) return; // not set down, or not beside it
-  const c = state.creatures[carriedBefore];
-  if (es.desire === 'loneliness' && (el.likes || []).includes(c.species)) {
+  if (!pressed || es.satisfied || !nearElder(state, course)) return;
+  const pleased = () => {
     es.satisfied = true;
     state.keysHeld[el.key] = true;
     state.hasKey = true;
     state.events.push('elder-pleased');
+  };
+  if (carriedBefore >= 0) {
+    if (state.carry >= 0) return; // the press did not set it down
+    const c = state.creatures[carriedBefore];
+    if (es.desire === 'loneliness' && (el.likes || []).includes(c.species)) pleased();
+    else {
+      state.lastRefused = c.species;
+      state.events.push('elder-refuses');
+    }
+    return;
+  }
+  // Nothing was carried, and the press caught nothing either: a covetous Ossa takes the hoard if Kai has it.
+  if (state.carry >= 0 || es.desire !== 'covetousness') return;
+  const need = el.tribute.coins;
+  const have = state.coins - state.spent;
+  if (have >= need) {
+    state.spent += need;
+    pleased();
   } else {
-    state.lastRefused = c.species;
-    state.events.push('elder-refuses');
+    state.lastShort = { have, need };
+    state.events.push('elder-short');
   }
 }
 

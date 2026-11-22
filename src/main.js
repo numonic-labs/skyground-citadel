@@ -18,7 +18,7 @@ import { COURSE_S3 } from './course.s3.mjs';
 import { COURSE_S4 } from './course.s4.mjs';
 import { COURSE_S5 } from './course.s5.mjs';
 import { COURSE_S6 } from './course.s6.mjs';
-import { COURSE_WORLD } from './course.world.mjs';
+import { worldCourse } from './course.world.mjs';
 import {
   mergeGeometries,
   mergeVertices,
@@ -56,6 +56,11 @@ const LEVEL = ['s2', 's3', 's4', 's5', 's6'].includes(q.get('level'))
 // The default is the whole journey (course.world.mjs). It is built by the open-S1 code path (LEVEL 's1') plus the world block
 // further down; ?level=s1 is act 1 alone and ?level=s1c the first corridor.
 const WORLD = !q.get('level') || q.get('level') === 'world';
+// Each playthrough is a run: its seed decides where Ossa, the Granmoss, has been found this season and what it wants. A new
+// page load is a new run; ?run=N plays run N again (the finish card shows the number).
+const RUN_SEED = q.has('run')
+  ? Number(q.get('run')) >>> 0
+  : Math.floor(Math.random() * 2 ** 31);
 const COURSE =
   LEVEL === 's6'
     ? COURSE_S6
@@ -70,7 +75,7 @@ const COURSE =
             : q.get('level') === 's1c'
               ? COURSE_S1
               : WORLD
-                ? COURSE_WORLD
+                ? worldCourse(RUN_SEED)
                 : COURSE_S1_OPEN;
 const ROUTE = q.get('route') || 'centre'; // which route the scripted player (?bot) follows in the open S1
 if (LEVEL === 's1' && COURSE.routes) {
@@ -3673,6 +3678,9 @@ async function loadKai() {
 
 // ---------- state, input ----------
 let state = createState(COURSE);
+// The scripted player (?bot) does not gather a covetous Ossa's hoard: it is handed one so the demo runs to the end.
+if (BOT && state.elder && state.elder.desire === 'covetousness')
+  state.coins = COURSE.elder.tribute.coins + 10;
 let started = AUTOSTART;
 let autopilotOn = BOT;
 let botOptions = {}; // e.g. { doubleJump: false } to play like a player who forgets the air jump
@@ -4318,7 +4326,18 @@ function onEvents(events) {
       toast('“Thank you, little steward. The key is yours.”', `${el.name}, ${el.title}`);
     } else if (e === 'elder-refuses') {
       const el = COURSE.elder;
-      toast(`A ${state.lastRefused} is not the company it wants`, `${el.name}, ${el.title}`);
+      toast(
+        el.desire === 'covetousness'
+          ? `A ${state.lastRefused} is no use to it: it wants a hoard of coins`
+          : `A ${state.lastRefused} is not the company it wants`,
+        `${el.name}, ${el.title}`
+      );
+    } else if (e === 'elder-short') {
+      const el = COURSE.elder;
+      toast(
+        `A hoard of ${state.lastShort.need} coins: you have ${state.lastShort.have}`,
+        `${el.name}, ${el.title}`
+      );
     } else if (e === 'travel-refused') {
       toast('You need a coin to travel');
     } else if (e === 'secret') {
@@ -4419,6 +4438,7 @@ function showFinish() {
     table.appendChild(tr);
   };
   row('Coins', `${state.coins} / ${COURSE.coins.length}`);
+  if (state.elder) row('Run', `${RUN_SEED} (add ?run=${RUN_SEED} to play it again)`);
   if (gemsTotal) row('Sky gems', `${state.gems} / ${gemsTotal}`);
   if (state.toRehome)
     row('Creatures rehomed', `${state.rehomed} / ${state.toRehome}`);
@@ -4781,6 +4801,19 @@ function emoteTexture(kind) {
     g.fillStyle = '#5a6fb8';
     g.font = 'bold 24px system-ui, sans-serif';
     g.fillText('z z', 32, 30);
+  } else if (kind === 'hoard') {
+    // A gold coin: it wants a hoard.
+    g.fillStyle = '#e8a91a';
+    g.beginPath();
+    g.arc(32, 30, 17, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#ffd75e';
+    g.beginPath();
+    g.arc(32, 30, 12, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#b87a08';
+    g.font = 'bold 20px system-ui, sans-serif';
+    g.fillText('$', 32, 31);
   } else if (kind === 'flee') {
     g.fillStyle = '#e0502a';
     g.fillText('!', 32, 31);
@@ -4985,7 +5018,7 @@ function buildOssa() {
   emote.visible = false;
   g.add(emote);
   g.position.set(el.x, plat.y, el.z);
-  g.rotation.y = Math.PI / 2; // facing east, toward the stepping stone
+  g.rotation.y = el.facing ?? Math.PI / 2; // facing the stepping stone it is reached by
   scene.add(g);
   return { g, body, eyes, lids, emote, rise: 0, key: keyG, shown: '' };
 }
@@ -5003,7 +5036,8 @@ function updateOssa(dt, t) {
   ossa.eyes.visible = happy;
   ossa.lids.visible = !happy;
   ossa.key.visible = !happy; // the key is in Kai's hand once Ossa lets go
-  const want = !happy && d < 14 ? 'play' : '';
+  // What it wants, in a thought bubble once Kai is near: a heart (company) or a gold coin (a hoard).
+  const want = !happy && d < 14 ? (state.elder.desire === 'covetousness' ? 'hoard' : 'play') : '';
   if (want !== ossa.shown) {
     ossa.shown = want;
     ossa.emote.visible = !!want;
