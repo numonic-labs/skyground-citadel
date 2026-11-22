@@ -2,11 +2,10 @@
 // and gives only part of the answer; together they point at the island.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { worldCourse, elderPlan } from '../src/course.world.mjs';
+import { worldCourse, elderPlan, DEFAULT_RUN } from '../src/course.world.mjs';
 import { createState, step, surfaceY } from '../src/logic.mjs';
 
-const WEST = 5; // seeds from test/elder.test.mjs: 5 is the west island, wanting company
-const C = worldCourse(WEST);
+const C = worldCourse(DEFAULT_RUN); // the west island, wanting company
 const press = (s, C2 = C) => step(s, { fwd: 0, right: 0, jump: false, wave: true }, C2);
 const release = (s, C2 = C) => step(s, { fwd: 0, right: 0, jump: false, wave: false }, C2);
 
@@ -99,7 +98,8 @@ test('no single clue is a giveaway: the gate-keeper names no place, the thanks n
     assert.ok(!thanks.text.includes(trueWhere.landmark));
     assert.ok(bramble.text.includes(trueWhere.landmark), `seed ${seed}: the bramble gives the landmark`);
     assert.ok(!bramble.text.includes(trueWhere.heading), `seed ${seed}: and not a direction`);
-    assert.ok(gate.text.includes(course.elder.desire === 'covetousness' ? 'hoard' : 'lonely'), `seed ${seed}: the gate-keeper hints what it wants`);
+    const word = { covetousness: 'hoard', loneliness: 'lonely', hunger: 'hungry', boredom: 'story' }[course.elder.desire];
+    assert.ok(gate.text.includes(word), `seed ${seed}: the gate-keeper hints what it wants (${course.elder.desire})`);
   }
 });
 

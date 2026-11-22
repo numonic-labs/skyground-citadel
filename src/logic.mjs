@@ -171,6 +171,9 @@ export function createState(course) {
   };
   createCreatures(st, course);
   if (course.elder) st.elder = { desire: course.elder.desire, needs: { ...course.elder.needs }, satisfied: false };
+  st.fruit = 0; // fruit picked up (for a hungry Ossa)
+  st.book = false; // the book from under the arch (to read to a bored Ossa)
+  st.giftsCollected = new Array((course.gifts || []).length).fill(false);
   st.clues = {}; // clue id -> true once heard (course.clues says what each one says)
   st.clueLog = []; // the order they were heard in
   return st;
@@ -888,6 +891,21 @@ export function step(state, input, course, dt = PARAMS.dt) {
     }
   }
 
+  // Gifts for Ossa lying about the grounds: fruit the Lapse left unpicked, and a book under the old arch. Walk into one to take it.
+  if (course.gifts) {
+    for (let i = 0; i < course.gifts.length; i++) {
+      if (state.giftsCollected[i]) continue;
+      const g = course.gifts[i];
+      if (Math.hypot(g.x - state.x, g.y - (state.y + PARAMS.chestHeight), g.z - state.z) <= PARAMS.gemRadius) {
+        state.giftsCollected[i] = true;
+        if (g.kind === 'fruit') state.fruit += 1;
+        else if (g.kind === 'book') state.book = true;
+        state.lastGift = g.kind;
+        state.events.push('gift');
+      }
+    }
+  }
+
   // Checkpoints (only while standing, so a jump over one does not claim it).
   // A checkpoint with a radius `r` is a region (any direction, claimed whenever Kai stands in it, so the last one reached is the
   // respawn point on a branching level); one without is claimed by progress along +Z, in order, as in the corridor levels.
@@ -1072,6 +1090,7 @@ function cloneState(s) {
     springs: [...s.springs],
     creatures: s.creatures && s.creatures.map((c) => ({ ...c })),
     elder: s.elder && { ...s.elder },
+    giftsCollected: [...s.giftsCollected],
     clues: { ...s.clues },
     clueLog: [...s.clueLog],
     events: [],
@@ -1223,9 +1242,13 @@ function elderErrand(state, course, options) {
   const press = (input) => ({ ...input, wave: !state.prevWave }); // a fresh press of X
   const still = { fwd: 0, right: 0, jump: false, grapple: false };
   if (state.elder.satisfied) return followNav(state, course, 'elder-back', er.back, options);
-  if (state.elder.desire === 'covetousness') {
-    // A hoard, not company: go straight to Ossa. (A test gives the scripted player the coins; it does not gather them.)
-    if (nearElder(state, course) && state.onGround) return state.coins - state.spent >= el.tribute.coins ? press(still) : null;
+  if (state.elder.desire !== 'loneliness') {
+    // A hoard, food or a story, not company: go straight to Ossa. (A test gives the scripted player what is asked; it does not
+    // gather it.)
+    if (nearElder(state, course) && state.onGround) {
+      const ask = elderAsk(state, course);
+      return ask.have >= ask.need ? press(still) : null;
+    }
     return followNav(state, course, 'elder-out', er.out, options);
   }
   if (state.carry < 0) {
@@ -1402,16 +1425,34 @@ function elderStep(state, course, carriedBefore, pressed) {
     }
     return;
   }
-  // Nothing was carried, and the press caught nothing either: a covetous Ossa takes the hoard if Kai has it.
-  if (state.carry >= 0 || es.desire !== 'covetousness') return;
-  const need = el.tribute.coins;
-  const have = state.coins - state.spent;
-  if (have >= need) {
-    state.spent += need;
+  // Nothing was carried, and the press caught nothing either: Ossa takes what it asks for, if Kai has it.
+  if (state.carry >= 0) return;
+  const ask = elderAsk(state, course);
+  if (!ask) return; // a lonely Ossa wants company, which is a creature, not this
+  if (ask.have >= ask.need) {
+    ask.pay();
     pleased();
   } else {
-    state.lastShort = { have, need };
+    state.lastShort = { kind: ask.kind, have: ask.have, need: ask.need };
     state.events.push('elder-short');
+  }
+}
+
+/**
+ * What a hungry, bored or covetous Ossa asks of Kai, and whether he has it: { kind, need, have, pay() }, or null for a lonely
+ * one (it wants a creature set down beside it). Coins are spent, fruit is given, a book is read aloud and kept.
+ */
+export function elderAsk(state, course) {
+  const el = course.elder;
+  switch (state.elder.desire) {
+    case 'covetousness':
+      return { kind: 'coins', need: el.tribute.coins, have: state.coins - state.spent, pay: () => (state.spent += el.tribute.coins) };
+    case 'hunger':
+      return { kind: 'fruit', need: el.feed.fruit, have: state.fruit, pay: () => (state.fruit -= el.feed.fruit) };
+    case 'boredom':
+      return { kind: 'book', need: 1, have: state.book ? 1 : 0, pay: () => {} };
+    default:
+      return null;
   }
 }
 

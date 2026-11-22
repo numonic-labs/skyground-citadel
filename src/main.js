@@ -2888,6 +2888,7 @@ const world = {
   keys: [],
   gates: [],
   gems: [],
+  gifts: [],
   blooms: [],
   creatures: [],
   springs: [],
@@ -2980,6 +2981,45 @@ if (WORLD) {
       scene.add(m);
       world.gems.push(m);
     }
+  }
+  // Gifts for Ossa: ripe fruit the Lapse left unpicked, and a book under the old arch.
+  for (const gft of COURSE.gifts || []) {
+    const m = new THREE.Group();
+    if (gft.kind === 'book') {
+      const cover = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.14, 0.42),
+        mat(0x8a3f2a, { emissive: 0x3a1408, emissiveIntensity: 0.4 })
+      );
+      const pages = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.1, 0.38),
+        mat(0xf6efd8, { emissive: 0x7a7050, emissiveIntensity: 0.35 })
+      );
+      pages.position.y = 0.02;
+      pages.position.x = 0.02;
+      const bHalo = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: cloudTex, color: 0xffe9a6, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })
+      );
+      bHalo.scale.set(2.2, 2.2, 1);
+      m.add(cover, pages, bHalo);
+      m.scale.setScalar(1.5);
+    } else {
+      const apple = new THREE.Mesh(
+        new THREE.SphereGeometry(0.26, 14, 10),
+        mat(0xe5483a, { emissive: 0x7a1a10, emissiveIntensity: 0.55, roughness: 0.4 })
+      );
+      apple.scale.y = 0.9;
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 5), mat(0x4fd16a));
+      leaf.position.set(0.05, 0.3, 0);
+      leaf.rotation.z = -0.6;
+      const fHalo = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: cloudTex, color: 0xff9a8a, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending })
+      );
+      fHalo.scale.set(1.5, 1.5, 1);
+      m.add(apple, leaf, fHalo);
+    }
+    m.position.set(gft.x, gft.y, gft.z);
+    scene.add(m);
+    world.gifts.push(m);
   }
   // The golden posts at the dock's end and on the far bank (the footage's grapple posts).
   for (const [px, py, pz] of [
@@ -3679,9 +3719,13 @@ async function loadKai() {
 
 // ---------- state, input ----------
 let state = createState(COURSE);
-// The scripted player (?bot) does not gather a covetous Ossa's hoard: it is handed one so the demo runs to the end.
-if (BOT && state.elder && state.elder.desire === 'covetousness')
+// The scripted player (?bot) does not gather what a covetous, hungry or bored Ossa asks for: it is handed the hoard, the fruit and
+// the book so the demo runs to the end.
+if (BOT && state.elder && state.elder.desire !== 'loneliness') {
   state.coins = COURSE.elder.tribute.coins + 10;
+  state.fruit = COURSE.elder.feed.fruit + 1;
+  state.book = true;
+}
 let started = AUTOSTART;
 let autopilotOn = BOT;
 let botOptions = {}; // e.g. { doubleJump: false } to play like a player who forgets the air jump
@@ -4343,6 +4387,13 @@ function onEvents(events) {
         ky + 3.2,
         kz - Math.cos(camYaw) * 6
       );
+    } else if (e === 'gift') {
+      audio.sfx('gem');
+      fx.ring(kx, ky + 1, kz, { color: state.lastGift === 'book' ? 0xffe9a6 : 0xff9a8a, speed: 6, n: 16 });
+      toast(
+        state.lastGift === 'book' ? 'A book of old stories' : `${state.fruit} fruit`,
+        state.lastGift === 'book' ? 'Found under the arch' : 'Ripe fruit'
+      );
     } else if (e === 'clue') {
       audio.sfx('area');
       showClue(state.lastClue);
@@ -4364,15 +4415,20 @@ function onEvents(events) {
     } else if (e === 'elder-refuses') {
       const el = COURSE.elder;
       toast(
-        el.desire === 'covetousness'
-          ? `A ${state.lastRefused} is no use to it: it wants a hoard of coins`
-          : `A ${state.lastRefused} is not the company it wants`,
+        el.desire === 'loneliness'
+          ? `A ${state.lastRefused} is not the company it wants`
+          : `A ${state.lastRefused} is no use to it: it wants ${{ covetousness: 'a hoard of coins', hunger: 'fruit', boredom: 'a story' }[el.desire]}`,
         `${el.name}, ${el.title}`
       );
     } else if (e === 'elder-short') {
       const el = COURSE.elder;
+      const sh = state.lastShort;
       toast(
-        `A hoard of ${state.lastShort.need} coins: you have ${state.lastShort.have}`,
+        sh.kind === 'coins'
+          ? `A hoard of ${sh.need} coins: you have ${sh.have}`
+          : sh.kind === 'fruit'
+            ? `It is hungry: ${sh.need} fruit, and you have ${sh.have}`
+            : 'It wants a story read to it: find a book',
         `${el.name}, ${el.title}`
       );
     } else if (e === 'travel-refused') {
@@ -4701,7 +4757,7 @@ function updateFeel(dtRaw, t) {
   feel.gemBumpT = Math.max(0, feel.gemBumpT - dtRaw);
   // The counters (rebuilt only when something changed).
   const held = Object.keys(state.keysHeld);
-  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${state.clueLog.length}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
+  const key = `${state.coins}|${state.spent}|${state.gems}|${state.hearts}|${held.join()}|${state.clueLog.length}|${state.fruit}|${state.book}|${state.rehomed}|${state.carry}|${feel.bumpT > 0}|${feel.gemBumpT > 0}`;
   if (key !== feel.hudKey) {
     feel.hudKey = key;
     const parts = [];
@@ -4737,6 +4793,8 @@ function updateFeel(dtRaw, t) {
       parts.push(
         el('span', 'steward', `Rehomed ${state.rehomed} / ${state.toRehome}`)
       );
+    if (state.fruit > 0) parts.push(el('span', 'keytag', `FRUIT ${state.fruit}`));
+    if (state.book) parts.push(el('span', 'keytag', 'BOOK'));
     if (state.clueLog.length)
       parts.push(el('span', 'keytag', `NOTES ${state.clueLog.length} / 3 · J`));
     if (state.carry >= 0)
@@ -4844,6 +4902,28 @@ function emoteTexture(kind) {
     g.fillStyle = '#5a6fb8';
     g.font = 'bold 24px system-ui, sans-serif';
     g.fillText('z z', 32, 30);
+  } else if (kind === 'fruit') {
+    // A red fruit with a leaf: it is hungry.
+    g.fillStyle = '#e5483a';
+    g.beginPath();
+    g.arc(32, 33, 15, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#4fae27';
+    g.beginPath();
+    g.ellipse(38, 15, 8, 4, -0.5, 0, Math.PI * 2);
+    g.fill();
+  } else if (kind === 'book') {
+    // An open book: it wants a story.
+    g.fillStyle = '#8a3f2a';
+    g.fillRect(14, 20, 36, 22);
+    g.fillStyle = '#f6efd8';
+    g.fillRect(16, 22, 15, 18);
+    g.fillRect(33, 22, 15, 18);
+    g.fillStyle = '#b9a98a';
+    for (const ly of [26, 30, 34]) {
+      g.fillRect(18, ly, 11, 1.5);
+      g.fillRect(35, ly, 11, 1.5);
+    }
   } else if (kind === 'talk') {
     // Three dots: it has something to say.
     g.fillStyle = '#3a3a55';
@@ -5088,7 +5168,7 @@ function updateOssa(dt, t) {
   ossa.lids.visible = !happy;
   ossa.key.visible = !happy; // the key is in Kai's hand once Ossa lets go
   // What it wants, in a thought bubble once Kai is near: a heart (company) or a gold coin (a hoard).
-  const want = !happy && d < 14 ? (state.elder.desire === 'covetousness' ? 'hoard' : 'play') : '';
+  const want = !happy && d < 14 ? { covetousness: 'hoard', hunger: 'fruit', boredom: 'book', loneliness: 'play' }[state.elder.desire] : '';
   if (want !== ossa.shown) {
     ossa.shown = want;
     ossa.emote.visible = !!want;
@@ -5562,6 +5642,11 @@ function updateVisuals(dt) {
       m.visible = !state.gemsCollected[i];
       m.rotation.y = t * 1.4;
       m.position.y = COURSE.gems[i].y + Math.sin(t * 2 + i) * 0.15;
+    });
+    world.gifts.forEach((m, i) => {
+      m.visible = !state.giftsCollected[i];
+      m.rotation.y = t * 1.2 + i;
+      m.position.y = COURSE.gifts[i].y + Math.sin(t * 2.2 + i) * 0.1;
     });
   }
   if (LEVEL === 's2' || WORLD) {

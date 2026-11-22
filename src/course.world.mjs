@@ -117,6 +117,25 @@ const coins = [
   { x: 0, y: 5.0, z: 409.4 },
 ];
 
+// Gifts for Ossa lying about the grounds (logic.mjs, "Gifts"): fruit the Lapse left unpicked, on the early lawns and islands where
+// anyone passes, and one book under the wooden arch on the far arch island V4. A hungry Ossa asks for FRUIT_NEEDED fruit, a bored
+// one for the book. (y is a height above the ground, resolved below for the island with a real terrain.)
+const FRUIT_NEEDED = 5;
+const gifts = [
+  { kind: 'fruit', x: -5, y: 0.8, z: -1 }, // the start lawn
+  { kind: 'fruit', x: 4, y: 0.8, z: 6 },
+  { kind: 'fruit', x: -9, y: 0.8, z: 4 },
+  { kind: 'fruit', x: -3, y: 0.8, z: 37 }, // island C
+  { kind: 'fruit', x: 3, y: 0.8, z: 44 },
+  { kind: 'fruit', x: 1, y: 0.8, z: 58 }, // island D
+  { kind: 'fruit', x: 16.5, y: 0.8, z: 40 }, // the hidden islet
+  { kind: 'fruit', x: -10, y: 4.8, z: 18 }, // the high road
+  { kind: 'fruit', x: -4, y: 0.8, z: 88 }, // the goal island of act 1
+  { kind: 'fruit', x: -19, y: -3.2, z: -1 }, // the lower island west
+  { kind: 'fruit', x: 15, y: -2.7, z: -9 }, // the lower island east
+  { kind: 'book', x: -53.5, y: -0.1, z: -4.5 }, // under the wooden arch on the far arch island (0.9 m above its ground)
+];
+
 // Sky gems (y on a visit island is a height above its terrain, resolved below).
 const gems = [
   { x: 16.5, y: 1.3, z: 41.5 }, // the secret islet
@@ -245,6 +264,7 @@ const BASE_WORLD = {
   ],
   coins,
   gems,
+  gifts,
   marker: COURSE_S1_OPEN.marker,
   goal: { x: 0, z: 413, r: 3 },
   // Named areas (by depth), shown as the player enters each.
@@ -329,7 +349,7 @@ const CHECKPOINT_NAMES = [
 BASE_WORLD.checkpoints = BASE_WORLD.checkpoints.map((c, i) => ({ ...c, name: CHECKPOINT_NAMES[i] || `Crystal ${i + 1}` }));
 
 // Pickups on a visit island hang above its real terrain (as in course.s1o.mjs).
-for (const c of BASE_WORLD.gems) {
+for (const c of [...BASE_WORLD.gems, ...BASE_WORLD.gifts]) {
   const p = BASE_WORLD.platforms.find((q) => q.hm && c.x >= q.x0 && c.x <= q.x1 && c.z >= q.z0 && c.z <= q.z1);
   if (!p) continue;
   const h = surfaceY(p, c.x, c.z);
@@ -344,9 +364,9 @@ for (const c of BASE_WORLD.gems) {
 // an island, with a way-crystal on it, and a scripted-player errand out and back (tested in test/world.test.mjs).
 // ---------------------------------------------------------------------------------------------------------------------------
 
-/** The needs the Elder has. Only some can be met in this version (LIVE_DESIRES); its desire is the strongest of those. */
+/** The needs the Elder has; its desire is the strongest of the LIVE_DESIRES, the ones the game can meet. */
 export const ELDER_NEEDS = ['loneliness', 'hunger', 'boredom', 'covetousness'];
-export const LIVE_DESIRES = ['loneliness', 'covetousness'];
+export const LIVE_DESIRES = ['loneliness', 'hunger', 'boredom', 'covetousness'];
 const TRIBUTE_COINS = 30; // what a covetous Ossa asks: a hoard of coins pressed into its shell
 
 const ELDER_SITES = [
@@ -481,7 +501,7 @@ function elderClues(seed, site, desire) {
     gate: {
       source: 'The gate-keeper',
       text: `The key went to Ossa, the Granmoss, before the gate sealed. It is too big to carry. Since the Lapse it has been ${
-        desire === 'covetousness' ? 'greedy for a hoard' : 'lonely'
+        { covetousness: 'greedy for a hoard', hunger: 'hungry', boredom: 'bored, with no story since', loneliness: 'lonely' }[desire]
       }.`,
     },
     thanks: {
@@ -497,10 +517,12 @@ function elderClues(seed, site, desire) {
 
 /** The tip shown on Ossa's island: it says what Ossa is, and what its desire asks for. */
 function elderTip(desire, site) {
-  const ask =
-    desire === 'covetousness'
-      ? `It wants a hoard: X beside it with ${TRIBUTE_COINS} coins in your pocket`
-      : 'It is lonely: a friend set down beside it would wake it';
+  const ask = {
+    covetousness: `It wants a hoard: X beside it with ${TRIBUTE_COINS} coins in your pocket`,
+    hunger: `It is hungry: X beside it with ${FRUIT_NEEDED} fruit in your pocket`,
+    boredom: 'It is bored: X beside it, with a book, and read to it',
+    loneliness: 'It is lonely: a friend set down beside it would wake it',
+  }[desire];
   return {
     z0: site.elder.z - 9,
     z1: site.elder.z + 9,
@@ -528,6 +550,7 @@ export function worldCourse(seed = DEFAULT_RUN) {
     key: 'citadel',
     likes: ['hopper'], // the company it welcomes, when it is lonely
     tribute: { coins: TRIBUTE_COINS }, // what it asks, when it is covetous
+    feed: { fruit: FRUIT_NEEDED }, // what it asks, when it is hungry (a bored one asks for the book)
     desire: plan.desire,
     needs: plan.needs,
     site: site.id,
@@ -539,7 +562,14 @@ export function worldCourse(seed = DEFAULT_RUN) {
     platforms: [...BASE_WORLD.platforms, ...site.platforms],
     checkpoints: [...BASE_WORLD.checkpoints, { ...site.checkpoint, name: 'Ossa’s isle' }],
     habitats: { ...BASE_WORLD.habitats, elderIsle: ['meadow'] },
-    tips: [...BASE_WORLD.tips, elderTip(plan.desire, site)],
+    tips: [
+      ...BASE_WORLD.tips,
+      elderTip(plan.desire, site),
+      // Only for a bored Ossa: where the book is, once Kai is on the arch island's low plateau near it.
+      ...(plan.desire === 'boredom'
+        ? [{ z0: -9, z1: 2, x: -53.5, w: 4, text: 'A book lies under the old wooden arch', until: (s) => s.book || !!s.keysHeld.citadel }]
+        : []),
+    ],
     elder,
     elderErrand: { catchPlat: 'A', out: site.out, back: site.back },
     clues: elderClues(seed, site, plan.desire),

@@ -48,7 +48,8 @@ for (const site of SITES) {
       assert.equal(C.elder.site, site);
       assert.equal(C.elder.desire, desire);
       const s = createState(C);
-      if (desire === 'covetousness') s.coins = C.elder.tribute.coins + 10; // the scripted player does not gather the hoard
+      // The scripted player does not gather what Ossa asks for: it is handed the hoard, the fruit and the book.
+      if (desire !== 'loneliness') Object.assign(s, { coins: C.elder.tribute.coins + 10, fruit: C.elder.feed.fruit + 1, book: true });
       for (let i = 0; i < 60 * 300 && s.status === 'playing'; i++) step(s, pilot(s, C, { route: 'centre' }), C);
       assert.equal(s.status, 'complete', `stopped at x=${s.x.toFixed(1)} z=${s.z.toFixed(1)} after ${s.deaths} falls`);
       assert.equal(s.elder.satisfied, true);
@@ -81,7 +82,7 @@ test('a covetous Ossa takes the hoard once, and says how short Kai is when he ca
   s.coins = 12;
   step(s, { fwd: 0, right: 0, jump: false, wave: true }, C);
   assert.ok(s.events.includes('elder-short'));
-  assert.deepEqual(s.lastShort, { have: 12, need: C.elder.tribute.coins });
+  assert.deepEqual(s.lastShort, { kind: 'coins', have: 12, need: C.elder.tribute.coins });
   assert.ok(!s.keysHeld.citadel);
   step(s, { fwd: 0, right: 0, jump: false, wave: false }, C);
   s.coins = C.elder.tribute.coins + 5;
@@ -120,4 +121,82 @@ test('a run is reproducible: the same seed gives the same course', () => {
   assert.deepEqual(a.elder, b.elder);
   assert.deepEqual(a.platforms.map((p) => p.id), b.platforms.map((p) => p.id));
   assert.ok(surfaceY(a.platforms.find((p) => p.id === 'elderIsle'), a.elder.x, a.elder.z) !== null);
+});
+
+function atOssa(course) {
+  const isle = course.platforms.find((q) => q.id === course.elder.plat);
+  const s = createState(course);
+  Object.assign(s, { x: course.elder.x + 2, z: course.elder.z, y: isle.y, standing: isle.id, onGround: true });
+  return s;
+}
+const pressX = (s, c) => step(s, { fwd: 0, right: 0, jump: false, wave: true }, c);
+const releaseX = (s, c) => step(s, { fwd: 0, right: 0, jump: false, wave: false }, c);
+
+test('a hungry Ossa takes five fruit once, and says how many Kai has when he is short', () => {
+  const C = worldCourse(seedFor['west/hunger']);
+  const s = atOssa(C);
+  s.fruit = 3;
+  pressX(s, C);
+  assert.ok(s.events.includes('elder-short'));
+  assert.deepEqual(s.lastShort, { kind: 'fruit', have: 3, need: C.elder.feed.fruit });
+  assert.ok(!s.keysHeld.citadel);
+  releaseX(s, C);
+  s.fruit = C.elder.feed.fruit + 2;
+  pressX(s, C);
+  assert.ok(s.events.includes('elder-pleased') && s.keysHeld.citadel);
+  assert.equal(s.fruit, 2, 'the fruit was given');
+});
+
+test('a bored Ossa wants the book read to it, and keeps nothing from Kai', () => {
+  const C = worldCourse(seedFor['east/boredom']);
+  const s = atOssa(C);
+  pressX(s, C);
+  assert.ok(s.events.includes('elder-short'));
+  assert.deepEqual(s.lastShort, { kind: 'book', have: 0, need: 1 });
+  releaseX(s, C);
+  s.book = true;
+  pressX(s, C);
+  assert.ok(s.events.includes('elder-pleased') && s.keysHeld.citadel);
+  assert.equal(s.book, true, 'the book is only read aloud');
+});
+
+test('each desire asks only for its own gift: coins do nothing to a hungry Ossa, fruit nothing to a covetous one', () => {
+  const hungry = worldCourse(seedFor['west/hunger']);
+  const h = atOssa(hungry);
+  Object.assign(h, { coins: 99, book: true });
+  pressX(h, hungry);
+  assert.ok(!h.keysHeld.citadel && h.spent === 0);
+  const greedy = worldCourse(seedFor['west/covetousness']);
+  const g = atOssa(greedy);
+  Object.assign(g, { fruit: 20, book: true });
+  pressX(g, greedy);
+  assert.ok(!g.keysHeld.citadel && g.fruit === 20);
+});
+
+test('fruit and the book lie about the grounds on solid ground, enough fruit for a hungry Ossa, and are picked up by walking into them', () => {
+  const C = worldCourse(DEFAULT_RUN);
+  const fruit = C.gifts.filter((g) => g.kind === 'fruit');
+  const books = C.gifts.filter((g) => g.kind === 'book');
+  assert.ok(fruit.length >= C.elder.feed.fruit + 3, 'plenty more fruit than a hungry Ossa asks for');
+  assert.equal(books.length, 1);
+  for (const g of C.gifts) {
+    const p = C.platforms.find((q) => g.x >= q.x0 && g.x <= q.x1 && g.z >= q.z0 && g.z <= q.z1);
+    assert.ok(p, `${g.kind} at ${g.x},${g.z} is over a platform`);
+    const ground = p.hm ? surfaceY(p, g.x, g.z) : p.y;
+    assert.ok(ground !== null && g.y - ground > 0.3 && g.y - ground < 2.3, `${g.kind} at ${g.x},${g.z} hangs ${(g.y - ground).toFixed(2)} m above the ground`);
+  }
+  const s = createState(C);
+  const f = fruit[0];
+  const p = C.platforms.find((q) => f.x >= q.x0 && f.x <= q.x1 && f.z >= q.z0 && f.z <= q.z1);
+  Object.assign(s, { x: f.x, z: f.z, y: p.y, standing: p.id, onGround: true });
+  step(s, { fwd: 0, right: 0, jump: false }, C);
+  assert.equal(s.fruit, 1);
+  assert.ok(s.events.includes('gift') && s.lastGift === 'fruit');
+  step(s, { fwd: 0, right: 0, jump: false }, C);
+  assert.equal(s.fruit, 1, 'taken once');
+  const b = books[0];
+  const bp = C.platforms.find((q) => b.x >= q.x0 && b.x <= q.x1 && b.z >= q.z0 && b.z <= q.z1);
+  Object.assign(s, { x: b.x, z: b.z, y: surfaceY(bp, b.x, b.z), standing: bp.id, onGround: true });
+  step(s, { fwd: 0, right: 0, jump: false }, C);
+  assert.equal(s.book, true);
 });
