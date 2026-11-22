@@ -115,3 +115,28 @@ function findSeedFor(id) {
 test('the clues are a pure function of the seed', () => {
   assert.deepEqual(worldCourse(321).clues, worldCourse(321).clues);
 });
+
+test('a creature that already lives somewhere, lifted and put down, earns no thanks and no clue; only one taken from where it does not belong to where it does', () => {
+  const s = createState(C);
+  // A hopper at home on the start lawn: pick it up and set it down on the same lawn.
+  const hi = s.creatures.findIndex((c) => c.species === 'hopper' && c.plat === 'A');
+  assert.ok(s.creatures[hi].counted, 'it lives there already');
+  Object.assign(s, { x: s.creatures[hi].x + 1, z: s.creatures[hi].z });
+  press(s);
+  assert.equal(s.carry, hi);
+  release(s);
+  press(s);
+  assert.ok(s.events.includes('settle'), 'set down where it lives');
+  assert.ok(!s.events.includes('rehome') && !s.events.includes('clue'));
+  assert.equal(s.rehomed, 0);
+  assert.deepEqual(s.clueLog, []);
+  // A dewling out of place on that lawn, set down on the same dry lawn: not where it belongs, so no clue either.
+  release(s);
+  const di = s.creatures.findIndex((c) => c.species === 'dewling' && c.plat === 'A');
+  Object.assign(s, { x: s.creatures[di].x + 1, z: s.creatures[di].z });
+  press(s);
+  release(s);
+  press(s);
+  assert.ok(s.events.includes('release'));
+  assert.deepEqual(s.clueLog, []);
+});

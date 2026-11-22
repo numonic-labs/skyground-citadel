@@ -808,6 +808,9 @@ export function step(state, input, course, dt = PARAMS.dt) {
   // Facing follows the horizontal velocity when moving.
   if (Math.hypot(state.vx, state.vz) > 0.5) state.yaw = Math.atan2(state.vx, state.vz);
 
+  // Ossa is too big to move and not something to run through: its body is a solid ellipse on its island.
+  if (course.elder) elderBody(state, course);
+
   // Stomping (S6): landing on a `stomp` enemy from above defeats it and bounces Kai; one with `drops: 'key'` opens the gate.
   if (course.enemies) {
     course.enemies.forEach((e, i) => {
@@ -1383,6 +1386,34 @@ export function creatureY(course, c, t = 0) {
 // ---------------------------------------------------------------------------------------------------------------------------
 
 /**
+ * Ossa's body: an oriented ellipse around it, wider along the way it faces (its head reaches furthest) than across, and as tall as
+ * its shell. Kai is pushed out of it, and what he was running into is stopped, as long as he is below the top of the shell.
+ * `facing` is the course's rotation about the vertical (0 faces +Z, PI/2 faces +X), as the renderer uses it.
+ */
+const ELDER_BODY = { across: 2.1, along: 2.9, height: 2.0 };
+function elderBody(state, course) {
+  const el = course.elder;
+  const plat = course.platforms.find((q) => q.id === el.plat);
+  if (!plat || state.y > plat.y + ELDER_BODY.height) return;
+  const th = el.facing ?? 0;
+  const dx = state.x - el.x;
+  const dz = state.z - el.z;
+  const f = dx * Math.sin(th) + dz * Math.cos(th); // along its facing
+  const s = dx * Math.cos(th) - dz * Math.sin(th); // across it
+  const A = ELDER_BODY.across + PARAMS.bodyRadius;
+  const B = ELDER_BODY.along + PARAMS.bodyRadius;
+  const k = Math.hypot(f / B, s / A);
+  if (k >= 1) return;
+  const scale = k < 1e-6 ? 1 : 1 / k; // out to the edge along the line from Ossa's centre (straight out if he is at the centre)
+  const nf = k < 1e-6 ? B : f * scale;
+  const ns = k < 1e-6 ? 0 : s * scale;
+  state.x = el.x + nf * Math.sin(th) + ns * Math.cos(th);
+  state.z = el.z + nf * Math.cos(th) - ns * Math.sin(th);
+  state.vx = 0;
+  state.vz = 0;
+}
+
+/**
  * Hear a clue to where Ossa is (course.clues: gate, thanks, bramble). Each is heard once and says part of it: the gate-keeper who
  * holds the key and what it wants; a rehomed creature where not to look; a dazed bramble a landmark. 'clue' is pushed once.
  */
@@ -1481,12 +1512,14 @@ function lifeStep(state, course, pressed, dt) {
         c.mood = 'wander';
         state.carry = -1;
         if (habitatOk(state, course, c.species, c.plat)) {
+          // Only a creature that was out of place and is now where it belongs is rehomed, and only that earns the thanks (a clue).
+          // One that already lived somewhere, picked up and put down again, is just set down.
           if (!c.counted) {
             c.counted = true;
             state.rehomed += 1;
-          }
-          state.events.push('rehome');
-          foundClue(state, course, 'thanks');
+            state.events.push('rehome');
+            foundClue(state, course, 'thanks');
+          } else state.events.push('settle');
         } else state.events.push('release');
       }
     } else {

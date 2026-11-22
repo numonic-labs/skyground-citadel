@@ -4387,6 +4387,8 @@ function onEvents(events) {
         ky + 3.2,
         kz - Math.cos(camYaw) * 6
       );
+    } else if (e === 'settle') {
+      audio.sfx('release', 0.5); // a creature that already lived here, set down again: no cheer, no clue
     } else if (e === 'gift') {
       audio.sfx('gem');
       fx.ring(kx, ky + 1, kz, { color: state.lastGift === 'book' ? 0xffe9a6 : 0xff9a8a, speed: 6, n: 16 });

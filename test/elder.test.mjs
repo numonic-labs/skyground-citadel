@@ -200,3 +200,43 @@ test('fruit and the book lie about the grounds on solid ground, enough fruit for
   step(s, { fwd: 0, right: 0, jump: false }, C);
   assert.equal(s.book, true);
 });
+
+test('Ossa is solid on every island: Kai cannot run through it, is pushed out if he is put inside, and clears it by jumping high', () => {
+  for (const site of SITES) {
+    const C = worldCourse(seedFor[`${site}/loneliness`]);
+    const isle = C.platforms.find((q) => q.id === C.elder.plat);
+    const th = C.elder.facing;
+    // Start 6 m in front of Ossa, along its facing, and run straight at its centre for four seconds.
+    const s = createState(C);
+    const sx = C.elder.x + Math.sin(th) * 6;
+    const sz = C.elder.z + Math.cos(th) * 6;
+    Object.assign(s, { x: sx, z: sz, y: isle.y, standing: isle.id, onGround: true });
+    for (let i = 0; i < 240; i++) {
+      const dx = C.elder.x - s.x;
+      const dz = C.elder.z - s.z;
+      const d = Math.hypot(dx, dz) || 1;
+      step(s, { fwd: dz / d, right: -dx / d, jump: false }, C);
+    }
+    const dist = Math.hypot(s.x - C.elder.x, s.z - C.elder.z);
+    assert.ok(dist > 2.5, `${site}: stopped at ${dist.toFixed(2)} m from Ossa's centre, not inside it`);
+    assert.ok(dist < 4.1, `${site}: and still within its reach (${dist.toFixed(2)} m)`);
+    // Put inside it: pushed out.
+    const t = createState(C);
+    Object.assign(t, { x: C.elder.x + 0.3, z: C.elder.z, y: isle.y, standing: isle.id, onGround: true });
+    step(t, { fwd: 0, right: 0, jump: false }, C);
+    assert.ok(Math.hypot(t.x - C.elder.x, t.z - C.elder.z) > 2, `${site}: pushed out of its body`);
+  }
+});
+
+test('Ossa does not stop Kai when he is far above its shell, or elsewhere on the map', () => {
+  const C = worldCourse(seedFor['west/loneliness']);
+  const isle = C.platforms.find((q) => q.id === C.elder.plat);
+  const high = createState(C);
+  Object.assign(high, { x: C.elder.x, z: C.elder.z, y: isle.y + 5, standing: null, onGround: false });
+  step(high, { fwd: 0, right: 0, jump: false }, C);
+  assert.ok(Math.abs(high.x - C.elder.x) < 0.5, 'high above it, he is not pushed sideways');
+  const far = createState(C);
+  const x0 = far.x;
+  step(far, { fwd: 1, right: 0, jump: false }, C);
+  assert.ok(Math.abs(far.x - x0) < 1, 'nothing changes on the start meadow');
+});
