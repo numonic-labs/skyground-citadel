@@ -866,8 +866,9 @@ halo.scale.set(2.1, 2.1, 1);
 waypoint.add(halo);
 const MARKER = COURSE.marker || { x: 0, y: 6.4, z: 24 };
 waypoint.position.set(MARKER.x, MARKER.y, MARKER.z); // high enough not to hide the landing from the chase camera
-course.add(waypoint);
-if (LEVEL !== 's1') waypoint.visible = false;
+// The blue marker from the footage is no longer shown: it hung over the launch pad on the start island and did nothing in play
+// (removed after a playtest). It is built but not added to the scene.
+waypoint.visible = false;
 
 // ---------- S2 geometry (placeholders until generated pieces replace them) ----------
 const s2 = { movers: [], flyers: [] };
@@ -4608,6 +4609,36 @@ const hudEl = document.getElementById('hud');
 const tipEl = document.getElementById('tip');
 const flashEl = document.getElementById('flash');
 const hurtEl = document.getElementById('hurt');
+// A key in the HUD is a small key icon, not a labelled pill. Its colour says which: gold for the citadel key, coral for the lantern
+// key. The name is in its tooltip and its accessible label.
+const KEY_COLOURS = { citadel: '#ffd75e', lantern: '#ff8a7a' };
+function keyIcon(id, pop) {
+  const SVG = 'http://www.w3.org/2000/svg';
+  const name = id === 'key' ? 'Key' : `${id[0].toUpperCase()}${id.slice(1)} key`;
+  const span = document.createElement('span');
+  span.className = 'keyico' + (pop ? ' pop' : '');
+  span.title = name;
+  span.setAttribute('role', 'img');
+  span.setAttribute('aria-label', name);
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('viewBox', '0 0 28 16');
+  svg.setAttribute('width', '33');
+  svg.setAttribute('height', '19');
+  const colour = KEY_COLOURS[id] || '#ffd75e';
+  const shape = (tag, attrs) => {
+    const n = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    svg.appendChild(n);
+  };
+  const look = { fill: colour, stroke: '#6b4a00', 'stroke-width': '1.1' };
+  shape('rect', { x: 11, y: 6.6, width: 15.5, height: 2.8, rx: 1.2, ...look }); // the shaft
+  shape('rect', { x: 19.5, y: 9, width: 2.4, height: 4.4, rx: 0.8, ...look }); // two teeth
+  shape('rect', { x: 23.4, y: 9, width: 2.4, height: 3.2, rx: 0.8, ...look });
+  shape('circle', { cx: 7, cy: 8, r: 6, ...look }); // the bow
+  shape('circle', { cx: 7, cy: 8, r: 2.3, fill: '#16243d' });
+  span.appendChild(svg);
+  return span;
+}
 function updateFeel(dtRaw, t) {
   const dt = Math.min(dtRaw, 1 / 30);
   const speed = Math.hypot(state.vx, state.vz);
@@ -4806,14 +4837,7 @@ function updateFeel(dtRaw, t) {
         );
       parts.push(h);
     }
-    for (const id of held)
-      parts.push(
-        el(
-          'span',
-          'keytag' + (id === 'citadel' && feel.keyPopT > 0 ? ' pop' : ''),
-          id === 'key' ? 'KEY' : `${id.toUpperCase()} KEY`
-        )
-      );
+    for (const id of held) parts.push(keyIcon(id, id === 'citadel' && feel.keyPopT > 0));
     if (COURSE.key && !held.length)
       parts.push(el('span', 'keytag', 'FIND THE KEY'));
     if (state.toRehome)
