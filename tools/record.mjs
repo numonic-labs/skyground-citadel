@@ -39,7 +39,10 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
 const WATCHDOG_MIN = Number(process.env.RECORD_WATCHDOG_MIN || 20); // software rendering is slow: the whole world run needs about 60
 const watchdog = setTimeout(async () => { console.error(`record watchdog: ${WATCHDOG_MIN} min exceeded`); await browser.close().catch(() => {}); process.exit(3); }, WATCHDOG_MIN * 60 * 1000);
-const page = await browser.newPage({ viewport: { width: W, height: H } });
+// Lay the game out at a normal window width (RECORD_LAYOUT_W, default 1280) and scale the picture down to W by H with the device
+// scale factor: a 640 px wide window makes the on-screen messages overflow, and a smaller canvas is cheaper to render too.
+const LAYOUT_W = Math.max(W, Number(process.env.RECORD_LAYOUT_W || 1280));
+const page = await browser.newPage({ viewport: { width: LAYOUT_W, height: Math.round((LAYOUT_W * H) / W) }, deviceScaleFactor: W / LAYOUT_W });
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
